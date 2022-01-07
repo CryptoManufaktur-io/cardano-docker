@@ -1,6 +1,7 @@
 version: "3.4"
 services:
   cardano:
+    restart: "${RESTART}"
     image: cardanosolutions/cardano-node-ogmios:latest
     volumes:
       - cardano-db:/db
