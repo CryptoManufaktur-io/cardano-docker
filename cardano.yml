@@ -2,7 +2,7 @@ version: "3.4"
 services:
   cardano:
     restart: "${RESTART}"
-    image: cardanosolutions/cardano-node-ogmios:latest
+    image: cardanosolutions/cardano-node-ogmios:${CARDANO_TAG}
     volumes:
       - cardano-db:/db
     labels:
