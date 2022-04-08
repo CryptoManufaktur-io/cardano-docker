@@ -1,0 +1,47 @@
+version: "3.4"
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 20m
+      max-file: "3"
+
+services:
+  cardano-haproxy:
+    image: haproxy:latest
+    user: root
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y curl jq bc ca-certificates
+        exec haproxy -f /usr/local/etc/haproxy/haproxy.cfg
+    networks:
+      default:
+        aliases:
+          - cardano-lb.example.com
+    configs:
+      - source: cardano-haproxy.cfg
+        target: /usr/local/etc/haproxy/haproxy.cfg
+      - source: check-cardanosync.sh
+        target: /var/lib/haproxy/check-cardanosync.sh
+        mode: 0555
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints: ["node.role == worker"]
+    healthcheck:
+      test: curl -sS http://localhost:8405/metrics || exit 1
+      interval: 60s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    <<: *logging
+
+configs:
+  cardano-haproxy.cfg:
+    external: true
+  check-cardanosync.sh:
+    external: true
