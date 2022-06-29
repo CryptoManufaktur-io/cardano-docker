@@ -3,6 +3,7 @@ services:
   cardano:
     restart: "${RESTART}"
     image: cardanosolutions/cardano-node-ogmios:${CARDANO_TAG}
+    stop_grace_period: 3m
     volumes:
       - cardano-db:/db
     labels:
