@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo chown USERNAME:USERNAME /workspaces
+sudo chown USERNAME:USERNAME /cardano-docker

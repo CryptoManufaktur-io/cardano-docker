@@ -26,9 +26,9 @@ services:
       - node-db:/data/db
       - node-ipc:/ipc
     labels:
-      # - metrics.scrape=true
-      # - metrics.port=6060
-      # - metrics.path=/debug/metrics/prometheus
+      - metrics.scrape=true
+      - metrics.port=12798
+      - metrics.path=/metrics
       - metrics.network=cardano-node-${NETWORK}
       - traefik.enable=true
       - traefik.http.routers.${RPC_HOST}.service=${RPC_HOST}

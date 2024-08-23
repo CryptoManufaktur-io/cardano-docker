@@ -8,6 +8,17 @@ ARG UID=1000
 # Copy fix permission script
 COPY fix-ownership.sh /usr/local/share/fix-ownership.sh
 
+# Install latest git and upgrade
+RUN apt update \
+    && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:git-core/ppa -y \
+    && apt install -y git \
+    && apt upgrade -y \
+    # Clean up
+    && apt purge --remove software-properties-common -y \
+    && apt autoremove -y 
+
 # Setup non root user
 RUN \
     # Add user $USERNAME

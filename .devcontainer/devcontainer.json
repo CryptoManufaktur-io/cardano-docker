@@ -4,7 +4,7 @@
 	"name": "Docker from Docker Compose",
 	"dockerComposeFile": "dev-docker-compose.yml",
 	"service": "cardano-node",
-	"workspaceFolder": "/workspaces",
+	"workspaceFolder": "/cardano-docker",
 
 	// Use this environment variable if you need to bind mount your local source code into a new container.
 	"remoteEnv": {
@@ -33,6 +33,11 @@
 	
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
+
+	// Mount ssh keys
+	"mounts": [
+		"type=bind,source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,consistency=cached"
+	],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "sh /usr/local/share/fix-ownership.sh"
