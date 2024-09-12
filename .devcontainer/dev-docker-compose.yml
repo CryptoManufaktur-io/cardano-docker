@@ -1,5 +1,5 @@
 services:
-  cardano-node:
+  cardano-devcontainer:
     build: 
       context: .
       dockerfile: Dockerfile

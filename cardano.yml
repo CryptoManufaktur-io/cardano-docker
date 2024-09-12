@@ -10,7 +10,6 @@ services:
   cardano-node:
     image: ghcr.io/intersectmbo/cardano-node:${CARDANO_NODE_VERSION}
     restart: "unless-stopped"
-    # user: 1000:1000
     command:
       - run
       - --topology /config/topology.json
@@ -22,7 +21,7 @@ services:
     environment:
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
     volumes:
-      - ${LOCAL_WORKSPACE_FOLDER:-$PWD}/config/${NETWORK}:/config
+      - ${LOCAL_WORKSPACE_FOLDER:-.}/config/${NETWORK}:/config
       - node-db:/data/db
       - node-ipc:/ipc
     labels:
