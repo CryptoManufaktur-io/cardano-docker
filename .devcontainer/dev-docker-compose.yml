@@ -3,9 +3,8 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-      # args:
-      #   - USERNAME=vscode
-      #   - ALLOWROOT=yes
+      args:
+        - WORKSPACE_FOLDER=/cardano-docker
 
     volumes:
       # User home dir persist

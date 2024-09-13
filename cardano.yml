@@ -8,21 +8,26 @@ x-logging: &logging
 
 services:
   cardano-node:
-    image: ghcr.io/intersectmbo/cardano-node:${CARDANO_NODE_VERSION}
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - CARDANO_NODE_VERSION=${CARDANO_NODE_VERSION}
+        - RPC_PORT=${RPC_PORT}
     restart: "unless-stopped"
-    command:
-      - run
-      - --topology /config/topology.json
-      - --database-path /data/db
-      - --socket-path /ipc/node.socket
-      - --host-addr 0.0.0.0
-      - --port ${RPC_PORT}
-      - --config /config/config.json
+    command: >
+      run
+      --topology /config/topology.json
+      --database-path /data/db
+      --socket-path /ipc/node.socket
+      --host-addr 0.0.0.0
+      --port ${RPC_PORT}
+      --config /config/config.json
     environment:
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
     volumes:
       - ${LOCAL_WORKSPACE_FOLDER:-.}/config/${NETWORK}:/config
-      - node-db:/data/db
+      - node-db:/data
       - node-ipc:/ipc
     labels:
       - metrics.scrape=true

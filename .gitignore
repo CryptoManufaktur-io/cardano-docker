@@ -1,5 +1,9 @@
 .env*
 ext-network.yml
 *.swp
+
 config/*
 !config/.hidden
+
+.devcontainer/ssl-certs/*
+!.devcontainer/ssl-certs/.hidden

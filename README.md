@@ -20,7 +20,9 @@ curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/conway-gen
 
 Example to copy mainnet config: This will create a folder `config/mainnet` with configurations for mainnet network.
 ```bash
-cp sample_config/mainnet/* config/
+cp -r sample_config/mainnet/ config/
+cp -r sample_config/preprod/ config/
+cp -r sample_config/preview/ config/
 ```
 
 Supports the following networks:
