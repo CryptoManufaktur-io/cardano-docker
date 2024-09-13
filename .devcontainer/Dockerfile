@@ -14,7 +14,7 @@ RUN  apt update \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y software-properties-common nano curl lsb-release openssh-client \
     # setup ssl certs
-    && cp /ssl-certs/*.crt /usr/local/share/ca-certificates/ \
+    && cp /ssl-certs/*.crt /usr/local/share/ca-certificates/ | true \
     && update-ca-certificates \
     # Install git
     && add-apt-repository ppa:git-core/ppa -y \
