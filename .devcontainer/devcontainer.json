@@ -4,7 +4,7 @@
 	"name": "Docker from Docker Compose",
 	"dockerComposeFile": "dev-docker-compose.yml",
 	"service": "cardano-devcontainer",
-	"workspaceFolder": "/cardano-docker",
+	"workspaceFolder": "/workspaces/cardano-docker",
 
 	// Use this environment variable if you need to bind mount your local source code into a new container.
 	"remoteEnv": {
