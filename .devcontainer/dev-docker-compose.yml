@@ -1,8 +1,8 @@
 services:
   cardano-devcontainer:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ../cardano
+      dockerfile: Dockerfile.devcontainer
       args:
         - WORKSPACE_FOLDER=/workspaces/cardano-docker
 

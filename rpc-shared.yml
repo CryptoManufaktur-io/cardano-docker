@@ -2,4 +2,4 @@
 services:
   cardano-node:
     ports:
-      - ${SHARE_IP:-}:${RPC_PORT}:${RPC_PORT}/tcp
+      - ${SHARE_IP:-}:${CNODE_PORT}:${CNODE_PORT}/tcp

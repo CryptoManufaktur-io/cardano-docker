@@ -9,26 +9,25 @@ x-logging: &logging
 services:
   cardano-node:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ./cardano
+      dockerfile: Dockerfile.binary
       args:
         - CARDANO_NODE_VERSION=${CARDANO_NODE_VERSION}
-        - RPC_PORT=${RPC_PORT}
-    restart: "unless-stopped"
-    command: >
-      run
-      --topology /config/topology.json
-      --database-path /data/db
-      --socket-path /ipc/node.socket
-      --host-addr 0.0.0.0
-      --port ${RPC_PORT}
-      --config /config/config.json
+    restart: unless-stopped
+    entrypoint: docker-entrypoint.sh
     environment:
-      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CONFIG=/runtime/files/config.json
+      - TOPOLOGY=/runtime/files/topology.json
+      - SOCKET=/runtime/sockets/node.socket
+      - DB_DIR=/runtime/db
+      - CNODE_HOST=${CNODE_HOST}
+      - CNODE_PORT=${CNODE_PORT}
+      - KES=${KES:-}
+      - VRF=${VRF:-}
+      - CERT=${CERT:-}
     volumes:
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/config/${NETWORK}:/config
-      - node-db:/data
-      - node-ipc:/ipc
+      - node-runtime:/runtime
+      - ${LOCAL_WORKSPACE_FOLDER:-.}/config/${NETWORK}:/runtime/files
     labels:
       - metrics.scrape=true
       - metrics.port=12798
@@ -43,9 +42,8 @@ services:
       - traefik.http.routers.${RPC_HOST}lb.entrypoints=websecure
       - traefik.http.routers.${RPC_HOST}lb.rule=Host(`${RPC_LB}.${DOMAIN}`)
       - traefik.http.routers.${RPC_HOST}lb.tls.certresolver=letsencrypt
-      - traefik.http.services.${RPC_HOST}.loadbalancer.server.port=${RPC_PORT}
+      - traefik.http.services.${RPC_HOST}.loadbalancer.server.port=${CNODE_PORT}
     <<: *logging
 
 volumes:
-  node-db:
-  node-ipc:
+  node-runtime:

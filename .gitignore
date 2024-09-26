@@ -5,5 +5,5 @@ ext-network.yml
 config/*
 !config/.hidden
 
-.devcontainer/ssl-certs/*
-!.devcontainer/ssl-certs/.hidden
+cardano/ssl-certs/*
+!cardano/ssl-certs/.hidden

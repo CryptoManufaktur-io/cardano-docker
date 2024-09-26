@@ -57,14 +57,22 @@ determine_distro() {
 
 handle_docker_sudo() {
   if [[ "$__distro" =~ "debian" || "$__distro" = "ubuntu" ]]; then
+    # Check using systemctl if it exists
     if command -v systemctl &> /dev/null; then
-      # Check using systemctl if it exists
-      systemctl status docker >/dev/null
+      set +e  # Disable exit-on-error temporarily
+      systemctl status docker >/dev/null 2>&1
       result=$?
+      set -e  # Re-enable exit-on-error
     else
-      # Fallback for systems without systemctl
+      result=1 # Assume error when systemctl command not found
+    fi
+
+    # Fallback for systems without systemctl or running docker some other ways like wsl or dind
+    if [ ! "${result}" -eq 0 ]; then
+      set +e  # Disable exit-on-error temporarily
       docker info 2>&1 | grep "Server Version" >/dev/null
       result=$?
+      set -e  # Re-enable exit-on-error
     fi
 
     if [ ! "${result}" -eq 0 ]; then
@@ -492,7 +500,7 @@ envmigrate() {
   fi
 
 # Adjust these vars to your project
-  ALL_VARS=( COMPOSE_FILE NETWORK CARDANO_NODE_VERSION RPC_PORT SHARE_IP DOMAIN RPC_HOST RPC_LB )
+  ALL_VARS=( COMPOSE_FILE NETWORK CARDANO_NODE_VERSION CNODE_PORT SHARE_IP DOMAIN RPC_HOST RPC_LB )
   OLD_VARS=( )
   NEW_VARS=( )
 
@@ -642,13 +650,19 @@ version() {
       docompose exec cardano-node cardano-node version
       echo
       docompose exec cardano-node cardano-cli version
-      ;;&
+      ;;
   esac
 }
 
 get_network() {
   var="NETWORK"
   echo $(sed -n -e "s/^${var}=\(.*\)/\1/p" "${ENV_FILE}" || true)
+}
+
+get_workdir(){
+  WORK_DIR=$(dirname "$(readlink -f "${BASH_SOURCE}")")
+  WORK_DIR=${LOCAL_WORKSPACE_FOLDER:-$WORK_DIR}
+  echo $WORK_DIR
 }
 
 tip() {
@@ -661,8 +675,22 @@ tip() {
     command="--mainnet"
   fi
 
+  # cardano-cli query tip --testnet-magic 1
   docompose exec cardano-node cardano-cli query tip $command
   echo
+}
+
+cli() {
+  WORK_DIR=$(get_workdir)
+  docompose run -i -v $WORK_DIR/:/runtime/source -w /runtime --rm --entrypoint bash cardano-node
+}
+
+gLiveView() {
+  docompose exec -w /runtime cardano-node gLiveView.sh
+}
+
+exec() {
+  docompose exec -w /runtime cardano-node bash
 }
 
 help() {
@@ -694,6 +722,12 @@ help() {
   echo "    print this help screen"
   echo "  tip"
   echo "    Check tip of the ${__app_name}"
+  echo "  cli"
+  echo "    Open cardano-cli in interactive mode with current folder and all volumes mounted"
+  echo "  gLiveView"
+  echo "    Open gLiveView.sh"
+  echo "  exec"
+  echo "    Exec into the cardano-node bash terminal"
   echo
   echo "The logs command can be appended by flags and specify the container(s). example: "
   echo
@@ -779,7 +813,7 @@ if ! docompose --help >/dev/null 2>&1; then
 fi
 
 case "$__command" in
-  help|update|up|start|down|stop|restart|version|logs|cmd|terminate|space|tip)
+  help|update|up|start|down|stop|restart|version|logs|cmd|terminate|space|tip|cli|gLiveView|exec)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"
