@@ -12,7 +12,7 @@ if [[ -d "${DB_DIR}" && -z "$(ls -A ${DB_DIR})" ]] && [[ -n "${SNAPSHOT}" ]]; th
     # Check if the file was downloaded successfully
     if [[ -f "${FILENAME}" ]]; then
         echo "Extracting ${FILENAME} to ${DB_DIR}..."
-        lz4 -dvc --no-sparse "${FILENAME}" | tar xv -C "${DB_DIR}"
+        lz4 -dvc --no-sparse "${FILENAME}" | tar xv --strip-components=1 -C "${DB_DIR}"
 
         # Check if the extraction was successful
         if [[ $? -eq 0 ]]; then
