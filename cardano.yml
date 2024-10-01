@@ -25,6 +25,7 @@ services:
       - KES=${KES:-}
       - VRF=${VRF:-}
       - CERT=${CERT:-}
+      - SNAPSHOT=${SNAPSHOT:-}
     volumes:
       - node-runtime:/runtime
       - ${LOCAL_WORKSPACE_FOLDER:-.}/config/${NETWORK}:/runtime/files
