@@ -447,8 +447,7 @@ update() {
   if [ "${__migrated}" -eq 1 ] && ! cmp -s "${ENV_FILE}" "${ENV_FILE}".source; then
     cp "${ENV_FILE}".source "${ENV_FILE}".bak
     rm "${ENV_FILE}".source
-    echo "Your ${ENV_FILE} configuration settings have been migrated to a fresh copy. You can \
-find the original contents in ${ENV_FILE}.bak."
+    echo "Your ${ENV_FILE} configuration settings have been migrated to a fresh copy. You can find the original contents in ${ENV_FILE}.bak."
     echo
     echo "List of changes made to ${ENV_FILE} during migration - current on left, original on right:"
     echo
@@ -689,7 +688,7 @@ gLiveView() {
   docompose exec -w /runtime cardano-node gLiveView.sh
 }
 
-exec() {
+cli-exec() {
   docompose exec -w /runtime cardano-node bash
 }
 
@@ -723,11 +722,11 @@ help() {
   echo "  tip"
   echo "    Check tip of the ${__app_name}"
   echo "  cli"
-  echo "    Open cardano-cli in interactive mode with current folder and all volumes mounted"
+  echo "    Open another container with cardano-cli in interactive mode with current folder and all volumes mounted"
+  echo "  cli-exec"
+  echo "    Exec into the cardano-node bash terminal"
   echo "  gLiveView"
   echo "    Open gLiveView.sh"
-  echo "  exec"
-  echo "    Exec into the cardano-node bash terminal"
   echo
   echo "The logs command can be appended by flags and specify the container(s). example: "
   echo
@@ -813,7 +812,7 @@ if ! docompose --help >/dev/null 2>&1; then
 fi
 
 case "$__command" in
-  help|update|up|start|down|stop|restart|version|logs|cmd|terminate|space|tip|cli|gLiveView|exec)
+  help|update|up|start|down|stop|restart|version|logs|cmd|terminate|space|tip|cli|cli-exec|gLiveView)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"
