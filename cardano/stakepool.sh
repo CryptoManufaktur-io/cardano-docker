@@ -82,6 +82,18 @@ gen-block-producer() {
   echo "Block producer keys generated successfully, there are saved under '$WORK_DIR' inside container."
 }
 
+rotate-kes() {
+  # Generating new KES Keys
+  cardano-cli $ERA node key-gen-KES \
+      --verification-key-file kes.vkey \
+      --signing-key-file kes.skey
+  
+    rm node.cert
+    gen-op-cert
+
+    echo "New Operational certificate generated successfully. You need to restart the block producer node with new node.cert"
+}
+
 gen-op-cert() {
   if [ -e "node.cert" ]; then
     echo "Operational certificate already generated. You can exec into container and check under '$WORK_DIR' folder"
@@ -391,6 +403,8 @@ help() {
   echo "    'vrf.skey', and 'vrf.vkey'. Will also check that keys dont exist to avoid overwrite"
   echo -e "  ${Blue}gen-op-cert${Color_Off}"
   echo "    Generate operational certificate, no overwrite"
+  echo -e "  ${Blue}rotate-kes${Color_Off}"
+  echo "    Rotate KES keys by removing node.cert and regenerating it again"
   echo -e "  ${Blue}build-sign-stake-reg-cert${Color_Off}"
   echo "    Create stake registration certificate and sign it"
   echo -e "  ${Blue}submit-stake-reg-cert${Color_Off}"
@@ -413,7 +427,7 @@ fi
 
 __command="$1"
 case "$__command" in
-  help|bash|balance|gen-wallet|gen-block-producer|gen-op-cert|build-sign-stake-reg-cert|submit-stake-reg-cert|pool-data|build-sign-pool-cert|submit-pool-cert|details)
+  help|bash|balance|gen-wallet|gen-block-producer|gen-op-cert|rotate-kes|build-sign-stake-reg-cert|submit-stake-reg-cert|pool-data|build-sign-pool-cert|submit-pool-cert|details)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"
