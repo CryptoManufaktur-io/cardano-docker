@@ -83,18 +83,55 @@ gen-block-producer() {
 }
 
 rotate-kes() {
+  if [ ! -e "cold.skey" ]; then
+    echo "Could not find cold.skey, generate it if not generated with ./ethd stakepool gen-block-producer"
+    exit 0
+  fi
+
+  mkdir -p rotate
+  cd rotate
+
+  if [ -e "node.cert" ]; then
+    read -r -p "Operational certificate exists in rotate folder, do you want to replace (only yes is accepted input)? " do_replace
+
+    if [[ "$do_replace" == "yes" ]]; then
+      rm ./*
+    else
+      echo "Operation aborted"
+      exit 0
+    fi
+  fi
+
   # Generating new KES Keys
   cardano-cli $ERA node key-gen-KES \
       --verification-key-file kes.vkey \
       --signing-key-file kes.skey
-  
-    rm node.cert
-    gen-op-cert
 
-    echo "New Operational certificate generated successfully. You need to restart the block producer node with new node.cert"
+  slotsPerKESPeriod=$(cat ../../files/shelley-genesis.json | jq -r '.slotsPerKESPeriod')
+  echo slotsPerKESPeriod: ${slotsPerKESPeriod}
+
+  slotNo=$(cardano-cli $ERA query tip $(get_network) | jq -r '.slot')
+  echo slotNo: ${slotNo}
+
+  startKesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
+  echo startKesPeriod: ${startKesPeriod}
+
+  cardano-cli $ERA node issue-op-cert \
+      --kes-verification-key-file kes.vkey \
+      --cold-signing-key-file ../cold.skey \
+      --operational-certificate-issue-counter ../cold.counter \
+      --kes-period ${startKesPeriod} \
+      --out-file node.cert
+
+  echo "New operational certificate and KES keys generated successfully. They are saved under '$WORK_DIR/rotate' inside container. You need to restart the block producer node with new node.cert and kes.skey"
 }
 
 gen-op-cert() {
+  if [ ! -e "cold.skey" ]; then
+    echo "Could not find cold.skey, generate it if not generated with ./ethd stakepool gen-block-producer"
+    exit 0
+  fi
+
   if [ -e "node.cert" ]; then
     echo "Operational certificate already generated. You can exec into container and check under '$WORK_DIR' folder"
     exit 0
@@ -391,7 +428,7 @@ help() {
   echo -e "  ${Blue}gen-op-cert${Color_Off}"
   echo "    Generate operational certificate, no overwrite"
   echo -e "  ${Blue}rotate-kes${Color_Off}"
-  echo "    Rotate KES keys by removing node.cert and regenerating it again"
+  echo "    Rotate KES keys by creating new KES keys and node.cert inside rotate folder so as not to overwrite existing keys and cert."
   echo -e "  ${Blue}build-sign-stake-reg-cert${Color_Off}"
   echo "    Create stake registration certificate and sign it"
   echo -e "  ${Blue}submit-stake-reg-cert${Color_Off}"
