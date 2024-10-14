@@ -679,16 +679,16 @@ tip() {
   echo
 }
 
-cli() {
+stakepool() {
   WORK_DIR=$(get_workdir)
-  docompose run -i -v $WORK_DIR/:/runtime/source -w /runtime --rm --entrypoint bash cardano-node
+  docompose run -ti -v $WORK_DIR/:/runtime/source -w /runtime/keys --rm --entrypoint bash cardano-node stakepool.sh $@
 }
 
 gLiveView() {
   docompose exec -w /runtime cardano-node gLiveView.sh
 }
 
-cli-exec() {
+exec-cli() {
   docompose exec -w /runtime cardano-node bash
 }
 
@@ -721,9 +721,9 @@ help() {
   echo "    print this help screen"
   echo "  tip"
   echo "    Check tip of the ${__app_name}"
-  echo "  cli"
-  echo "    Open another container with cardano-cli in interactive mode with current folder and all volumes mounted"
-  echo "  cli-exec"
+  echo "  stakepool"
+  echo "    Guide on how to generate keys for stakepool and register"
+  echo "  exec-cli"
   echo "    Exec into the cardano-node bash terminal"
   echo "  gLiveView"
   echo "    Open gLiveView.sh"
@@ -812,7 +812,7 @@ if ! docompose --help >/dev/null 2>&1; then
 fi
 
 case "$__command" in
-  help|update|up|start|down|stop|restart|version|logs|cmd|terminate|space|tip|cli|cli-exec|gLiveView)
+  help|update|up|start|down|stop|restart|version|logs|cmd|terminate|space|tip|stakepool|exec-cli|gLiveView)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"

@@ -64,4 +64,5 @@ ENV CARDANO_NODE_SOCKET_PATH="$CNODE_HOME/sockets/node.socket"
 
 # Starting point
 COPY docker-entrypoint.sh /usr/local/bin/
+COPY stakepool.sh /usr/local/bin/
 ENTRYPOINT [ "cardano-node" ]

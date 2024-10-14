@@ -16,6 +16,9 @@ services:
     restart: unless-stopped
     entrypoint: docker-entrypoint.sh
     environment:
+      - NETWORK=${NETWORK}
+      - ERA=${ERA}
+      - CONFIG_UPDATES=${CONFIG_UPDATES:-}
       - CONFIG=/runtime/files/config.json
       - TOPOLOGY=/runtime/files/topology.json
       - SOCKET=/runtime/sockets/node.socket
@@ -26,9 +29,9 @@ services:
       - VRF=${VRF:-}
       - CERT=${CERT:-}
       - SNAPSHOT=${SNAPSHOT:-}
+      - SNAPSHOT_CHECKSUM=${SNAPSHOT_CHECKSUM:-}
     volumes:
       - node-runtime:/runtime
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/config/${NETWORK}:/runtime/files
     labels:
       - metrics.scrape=true
       - metrics.port=12798

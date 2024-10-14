@@ -2,8 +2,7 @@
 ext-network.yml
 *.swp
 
-config/*
-!config/.hidden
+poolMetaData.json
 
 cardano/ssl-certs/*
 !cardano/ssl-certs/.hidden
