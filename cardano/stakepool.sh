@@ -91,6 +91,11 @@ rotate-kes() {
   mkdir -p rotate
   cd rotate
 
+  overwrite=${2:-}
+  if [[ "$overwrite" == "overwrite" ]]; then
+    rm ./*
+  fi
+
   if [ -e "node.cert" ]; then
     read -r -p "Operational certificate exists in rotate folder, do you want to replace (only yes is accepted input)? " do_replace
 
