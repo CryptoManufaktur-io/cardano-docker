@@ -377,19 +377,6 @@ details(){
 help() {
   echo "usage: ${__me} [-h|--help] <command>"
   echo
-  echo "This script is designed to help you setup your stake pool. The following steps are taken to start a stakepool"
-  echo
-  echo "1.  Generate wallet keys"
-  echo "2.  Generate Block Producer Keys"
-  echo "3.  Generate operational certificate"
-  echo -e "${Blue}4.  Restart relay node with keys generated to be a block producer node. Just uncomment the keys from .env${Color_Off}"
-  echo "5.  To-up your address."
-  echo "6.  Build & sign stake reg certificate & transaction"
-  echo "7.  Submit stake registration certificate transaction"
-  echo "8.  Create poolMetaData.json and upload to a server reachable via GET http or https"
-  echo "9.  Build & sign pool reg certificate & transaction"
-  echo "10. Submit pool registration certificate transaction"
-  echo
   echo "Which action command do you want?"
   echo -e "  ${Blue}bash${Color_Off}"
   echo "    Exec into container folder with keys. You can view or copy them from there."

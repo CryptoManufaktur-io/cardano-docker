@@ -37,6 +37,22 @@ Supports the following networks:
     # NB can use alternative
     ```
 
+## Keys generation
+
+This repo has a script that is designed to help you setup your stake pool. The following steps are taken to start a stakepool
+1. Generate wallet keys
+2. Generate Block Producer Keys
+3. Generate operational certificate
+4. Restart relay node with keys generated to be a block producer node. Just uncomment the keys from .env
+5. To-up your address.
+6. Build & sign stake reg certificate & transaction
+7. Submit stake registration certificate transaction
+8. Create poolMetaData.json and upload to a server reachable via GET http or https
+9. Build & sign pool reg certificate & transaction
+10. Submit pool registration certificate transaction
+
+## ------
+
 Patterned after eth-docker and meant to be used with https://github.com/CryptoManufaktur-io/base-docker-environment for traefik and Prometheus.
 
 You can copy `ext-network.yml.sample` to `ext-network.yml` and allow the node to run on same network as where traefik and prometheus run. This will allow proxy and metrics to work without exposing their ports and just using docker service discovery with service names.
