@@ -1,0 +1,5 @@
+# To be used in conjunction with node.yml or cdk-erigon.yml
+services:
+  cardano-node:
+    ports:
+      - ${SHARE_IP:-}:12798:12798/tcp

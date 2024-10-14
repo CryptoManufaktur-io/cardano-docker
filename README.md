@@ -3,9 +3,7 @@
 Docker compose for cardano relay and block producer node. 
 
 ## Configuration
-Since cardano node does not support override of configurations with command line arguments or environment variables, this repo does not contain any configuration by default. Instead there are sample configs on `sample_config` folder for all supported networks. You need to copy the specific network configs to the folder `config` on root directory and edit accordingly before running the node. This makes the repo very dynamic and can support cardano relays and block producer at same time.
-
-NB: `sample_config` has default config from cardano `https://book.world.dev.cardano.org`. You can also download the config files from there if the ones on `sample_config` are outdated.
+Since cardano node does not support override of configurations with command line arguments or environment variables, this repo will always download latest config from official URLS below. In order to override any value in the config, use .env file and add the changes to `CONFIG_UPDATES` variable. The config will be updated when the node is starting up.
 
 ```bash
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/config.json
@@ -18,20 +16,10 @@ curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/alonzo-gen
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/conway-genesis.json
 ```
 
-Example to copy mainnet config: This will create a folder `config/mainnet` with configurations for mainnet network.
-```bash
-cp -r sample_config/mainnet/ config/
-cp -r sample_config/preprod/ config/
-cp -r sample_config/preview/ config/
-```
-
 Supports the following networks:
 1. Testnet / Preview
     ```bash
     NetworkMagic: 2
-
-    # Check tip
-    docker compose exec cardano-node cardano-cli query tip --testnet-magic 2
 
     # Alternative check tip for any network
     ./ethd tip
@@ -40,17 +28,11 @@ Supports the following networks:
     ```bash
     NetworkMagic: 1
 
-    # Check tip
-    docker compose exec cardano-node cardano-cli query tip --testnet-magic 1
-
     # NB can use alternative
     ```
 3. Mainnet / Production
     ```bash
     NetworkMagic: 764824073
-
-    # Check tip
-    docker compose exec cardano-node cardano-cli query tip --mainnet
 
     # NB can use alternative
     ```
@@ -63,7 +45,7 @@ You can copy `ext-network.yml.sample` to `ext-network.yml` and allow the node to
 
 `cp default.env .env`, adjust variables, and `./ethd up`
 
-There's an `rpc-shared.yml` if you want the RPC exposed locally, instead of via traefik
+There's an `rpc-shared.yml` if you want the RPC exposed locally, instead of via traefik, also similar there is `metrics-shared.yml` to expose metrics.
 
 To update cardano, use `./ethd update` followed by `./ethd up`
 
