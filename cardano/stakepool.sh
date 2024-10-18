@@ -183,7 +183,8 @@ gen-raw-stake-cert() {
   echo currentBalance: $currentBalance
   
   # Get stakeAddressDeposit
-  stakeAddressDeposit=$(cardano-cli $ERA query protocol-parameters $(get_network) | jq -r '.stakeAddressDeposit')
+  PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
+  stakeAddressDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakeAddressDeposit')
   echo stakeAddressDeposit: $stakeAddressDeposit
 
   # tx-in
@@ -289,19 +290,16 @@ build-sign-pool-cert() {
   fi
 
   # Find the minimum pool cost:
-  cardano-cli $ERA query protocol-parameters \
-      $(get_network)  \
-      --out-file protocol.json
+  PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
 
-  read -r -p "Enter relay node URL: " relay_url
-
-  minPoolCost=$(cat protocol.json | jq -r .minPoolCost)
+  minPoolCost=$(echo $PROTOCOL_JSON | jq -r .minPoolCost)
   echo minPoolCost: ${minPoolCost}
 
-  stakePoolDeposit=$(cat protocol.json | jq -r '.stakePoolDeposit')
+  stakePoolDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakePoolDeposit')
   echo $stakePoolDeposit
 
   # Generate the stake pool registration certificate
+  read -r -p "Enter relay node URL: " relay_url
   cardano-cli $ERA stake-pool registration-certificate \
       --cold-verification-key-file cold.vkey \
       --vrf-verification-key-file vrf.vkey \
