@@ -25,13 +25,20 @@ services:
       - DB_DIR=/runtime/db
       - CNODE_HOST=${CNODE_HOST}
       - CNODE_PORT=${CNODE_PORT}
+
+      - NODE_TYPE=${NODE_TYPE}
+      - TOPOLOGY_ACCESS_POINTS=${TOPOLOGY_ACCESS_POINTS:-}
       - KES=${KES:-}
       - VRF=${VRF:-}
       - CERT=${CERT:-}
+
       - SNAPSHOT=${SNAPSHOT:-}
       - SNAPSHOT_CHECKSUM=${SNAPSHOT_CHECKSUM:-}
     volumes:
       - node-runtime:/runtime
+      - ./keys:/runtime/keys
+      - ./cardano/stakepool.sh:/usr/local/bin/stakepool.sh
+      - ./cardano/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     labels:
       - metrics.scrape=true
       - metrics.port=12798

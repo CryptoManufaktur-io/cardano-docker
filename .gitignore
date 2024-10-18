@@ -6,3 +6,6 @@ poolMetaData.json
 
 cardano/ssl-certs/*
 !cardano/ssl-certs/.hidden
+
+keys/*
+!keys/.hidden

@@ -9,6 +9,10 @@ Green='\033[0;32m'        # Green
 Yellow='\033[0;33m'       # Yellow
 Blue='\033[0;34m'         # Blue
 
+bash(){
+    /bin/bash
+}
+
 get_network(){
   if [[ "$NETWORK" == "preview" ]]; then
     command="--testnet-magic 2"
@@ -21,185 +25,165 @@ get_network(){
   echo $command  
 }
 
-bash(){
-    /bin/bash
-}
-
-gen-wallet() {
-  if [ -e "payment.skey" ]; then
-    echo "Wallet keys already generated. You can exec into container and check under '$WORK_DIR' folder"
+gen-payment-keys() {
+  if [ -e "payment/payment.skey" ]; then
+    echo -e "${Red}Error!! Payment keys already generated. Check under keys/payment folder${Color_Off}"
     exit 0
   fi
 
-  # Generating Payment Keys 
+  # Generating Payment Keys
+  mkdir -p payment block-producer
   cardano-cli $ERA address key-gen \
-      --verification-key-file payment.vkey \
-      --signing-key-file payment.skey
+      --verification-key-file payment/payment.vkey \
+      --signing-key-file payment/payment.skey
+
+  # Generating Payment address
+  cardano-cli $ERA address build \
+      --payment-verification-key-file payment/payment.vkey \
+      --out-file block-producer/payment.addr \
+      $(get_network)
+  
+  echo -e "${Green}Payment keys generated successfully, they are saved under keys/payment folder.${Color_Off}"
+}
+
+gen-stake-keys() {
+  if [ -e "stake/stake.skey" ]; then
+    echo -e "${Red}Error!! Stake keys already generated. Check under keys/stake folder${Color_Off}"
+    exit 0
+  fi
 
   # Generating Stake Keys
+  mkdir -p stake block-producer
   cardano-cli $ERA stake-address key-gen \
-      --verification-key-file stake.vkey \
-      --signing-key-file stake.skey
+      --verification-key-file stake/stake.vkey \
+      --signing-key-file stake/stake.skey
 
   # Create your stake address from the stake address verification key
   cardano-cli $ERA stake-address build \
-      --stake-verification-key-file stake.vkey \
-      --out-file stake.addr \
-      $(get_network)
-
-  # Generating Wallet Keys
-  cardano-cli $ERA address build \
-      --payment-verification-key-file payment.vkey \
-      --out-file payment.addr \
+      --stake-verification-key-file stake/stake.vkey \
+      --out-file block-producer/stake.addr \
       $(get_network)
   
-  echo "Wallet keys generated successfully, there are saved under '$WORK_DIR' inside container."
+  # generate certificate
+  echo "Provide stakeAddressDeposit (You can get it by executing the command below on a running node)"
+  echo ""
+  echo -e "${Blue}./ethd cmd exec cardano-node cardano-cli $ERA query protocol-parameters $(get_network) | jq -r '.stakeAddressDeposit'${Color_Off}"
+  echo ""
+  read -r -p "Enter stakeAddressDeposit: " stakeAddressDeposit
+
+  cardano-cli $ERA stake-address registration-certificate \
+    --stake-verification-key-file stake/stake.vkey \
+    --out-file block-producer/stake.cert \
+    --key-reg-deposit-amt $stakeAddressDeposit
+  
+  echo -e "${Green}Stake keys and certificated generated successfully, they are saved under keys/stake folder, certificate saved under keys/block-producer folder.${Color_Off}"
 }
 
-gen-block-producer() {
-  if [ -e "cold.skey" ]; then
-    echo "Block producer keys already generated. You can exec into container and check under '$WORK_DIR' folder"
+gen-cold-keys() {
+  if [ -e "cold-keys/cold.skey" ]; then
+    echo -e "${Red}Error!! Block producer cold keys already generated, check under keys/cold-keys folder${Color_Off}"
     exit 0
   fi
 
   # Generating Cold Keys
+  mkdir -p cold-keys block-producer
   cardano-cli $ERA node key-gen \
-      --cold-verification-key-file cold.vkey \
-      --cold-signing-key-file cold.skey \
-      --operational-certificate-issue-counter cold.counter
-
-  # Generating KES Keys
-  cardano-cli $ERA node key-gen-KES \
-      --verification-key-file kes.vkey \
-      --signing-key-file kes.skey
+      --cold-verification-key-file cold-keys/cold.vkey \
+      --cold-signing-key-file cold-keys/cold.skey \
+      --operational-certificate-issue-counter cold-keys/cold.counter
 
   # Generating VRF Keys
   cardano-cli $ERA node key-gen-VRF \
       --verification-key-file vrf.vkey \
-      --signing-key-file vrf.skey
-  chmod 400 vrf.skey
-    
-  echo "Block producer keys generated successfully, there are saved under '$WORK_DIR' inside container."
+      --signing-key-file block-producer/vrf.skey
+  chmod 400 block-producer/vrf.skey
+
+  echo -e "${Green}Block producer cold keys generated successfully, they are saved under keys/cold-keys folder. vrf.skey is under keys/block-producer folder.${Color_Off}"
 }
 
-rotate-kes() {
-  if [ ! -e "cold.skey" ]; then
-    echo "Could not find cold.skey, generate it if not generated with ./ethd stakepool gen-block-producer"
+gen-op-cert() {
+  if [ ! -e "cold-keys/cold.skey" ]; then
+    echo -e "${Red}Error!! Could not find cold.skey, generate it if not generated with ./ethd stakepool gen-cold-keys${Color_Off}"
     exit 0
   fi
 
-  mkdir -p rotate
-  cd rotate
-
-  overwrite=${2:-}
-  if [[ "$overwrite" == "overwrite" ]]; then
-    rm ./*
-  fi
-
-  if [ -e "node.cert" ]; then
-    read -r -p "Operational certificate exists in rotate folder, do you want to replace (only yes is accepted input)? " do_replace
+  if [ -e "block-producer/node.cert" ]; then
+    echo -e "${Red}READ CAREFULLY${Color_Off}"
+    read -r -p "Operational certificate exists in keys/block-producer folder, do you want to replace (only yes is accepted as input)? " do_replace
 
     if [[ "$do_replace" == "yes" ]]; then
-      rm ./*
+      rm block-producer/node.cert
     else
       echo "Operation aborted"
       exit 0
     fi
   fi
 
-  # Generating new KES Keys
+  # Get slotNo
+  echo "Provide slotNo (You can get it by executing the command below on a running node)"
+  echo ""
+  echo -e "${Blue}./ethd tip | jq -r '.slot'${Color_Off}"
+  echo ""
+  read -r -p "Enter slotNo: " slotNo
+  echo slotNo: ${slotNo}
+
+  # Create folder
+  mkdir -p block-producer
+
+  # Generating KES Keys
   cardano-cli $ERA node key-gen-KES \
       --verification-key-file kes.vkey \
-      --signing-key-file kes.skey
+      --signing-key-file block-producer/kes.skey
 
-  slotsPerKESPeriod=$(cat ../../files/shelley-genesis.json | jq -r '.slotsPerKESPeriod')
+  SHELLY_JSON=$(curl -s https://book.world.dev.cardano.org/environments/${NETWORK}/shelley-genesis.json)
+  slotsPerKESPeriod=$(echo $SHELLY_JSON | jq -r '.slotsPerKESPeriod')
   echo slotsPerKESPeriod: ${slotsPerKESPeriod}
-
-  slotNo=$(cardano-cli $ERA query tip $(get_network) | jq -r '.slot')
-  echo slotNo: ${slotNo}
 
   startKesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
   echo startKesPeriod: ${startKesPeriod}
 
   cardano-cli $ERA node issue-op-cert \
       --kes-verification-key-file kes.vkey \
-      --cold-signing-key-file ../cold.skey \
-      --operational-certificate-issue-counter ../cold.counter \
+      --cold-signing-key-file cold-keys/cold.skey \
+      --operational-certificate-issue-counter cold-keys/cold.counter \
       --kes-period ${startKesPeriod} \
-      --out-file node.cert
-
-  echo "New operational certificate and KES keys generated successfully. They are saved under '$WORK_DIR/rotate' inside container. You need to restart the block producer node with new node.cert and kes.skey"
-}
-
-gen-op-cert() {
-  if [ ! -e "cold.skey" ]; then
-    echo "Could not find cold.skey, generate it if not generated with ./ethd stakepool gen-block-producer"
-    exit 0
-  fi
-
-  if [ -e "node.cert" ]; then
-    echo "Operational certificate already generated. You can exec into container and check under '$WORK_DIR' folder"
-    exit 0
-  fi
-
-  slotsPerKESPeriod=$(cat ../files/shelley-genesis.json | jq -r '.slotsPerKESPeriod')
-  echo slotsPerKESPeriod: ${slotsPerKESPeriod}
-
-  slotNo=$(cardano-cli $ERA query tip $(get_network) | jq -r '.slot')
-  echo slotNo: ${slotNo}
-
-  startKesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
-  echo startKesPeriod: ${startKesPeriod}
-
-  cardano-cli $ERA node issue-op-cert \
-      --kes-verification-key-file kes.vkey \
-      --cold-signing-key-file cold.skey \
-      --operational-certificate-issue-counter cold.counter \
-      --kes-period ${startKesPeriod} \
-      --out-file node.cert
+      --out-file block-producer/node.cert
     
-  echo "Operational certificate generated successfully, it is saved under '$WORK_DIR' inside container."
+  echo -e "${Green}Operational certificate generated successfully, it is saved under keys/block-producer folder. You can now copy everything on keys/block-producer folder to your node and restart it.${Color_Off}"
 }
 
 balance() {
-  if [ ! -e "payment.addr" ]; then
-    echo "Wallet keys not present, you need to generate them first"
+  if [ ! -e "block-producer/payment.addr" ]; then
+    echo -e "${Red}Error!! Payment address not present, you need payment.addr inside keys/block-producer folder${Color_Off}"
     exit 0
   fi
 
-  addr=$(cat payment.addr)
+  addr=$(cat block-producer/payment.addr)
   bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
   currentBalance=$(echo $bal | jq -r .[].value.lovelace)
   keys=$(echo $bal | jq -r 'keys[]')
 
   echo "Balance for '$addr': ${currentBalance:-0} lovelace"
-  echo -e "${Blue}utxos below${Color_Off}"
+  echo -e "${Blue}utxos${Color_Off}"
   echo $keys
   echo 
   echo "You can topup the address if needed using the address hash shown"
 }
 
-build-sign-stake-reg-cert() {
-  if [ ! -e "stake.vkey" ]; then
-    echo "Wallet keys not present, you need to generate them first"
-    exit 0
-  fi
-
-  if [ -e "tx.signed" ]; then
-    echo "Stake address certificate already generated and saved to '$WORK_DIR/stake.cert' with transaction at '$WORK_DIR/tx.signed'"
+gen-raw-stake-cert() {
+  if [ -e "tx.raw" ]; then
+    echo -e "${Red}Error!! Raw transaction to submit stake certificate already generated and saved to 'keys/tx.raw'${Red}"
     exit 0
   fi
 
   # Check balance
-  addr=$(cat payment.addr)
+  addr=$(cat block-producer/payment.addr)
   bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
   currentBalance=$(echo $bal | jq -r .[].value.lovelace)
   echo currentBalance: $currentBalance
-
-  # Get protocol.json
-  cardano-cli $ERA query protocol-parameters $(get_network) --out-file protocol.json
   
-  stakeAddressDeposit=$(cat protocol.json | jq -r '.stakeAddressDeposit')
+  # Get stakeAddressDeposit
+  stakeAddressDeposit=$(cardano-cli $ERA query protocol-parameters $(get_network) | jq -r '.stakeAddressDeposit')
   echo stakeAddressDeposit: $stakeAddressDeposit
 
   # tx-in
@@ -210,28 +194,20 @@ build-sign-stake-reg-cert() {
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
   echo Current Slot: $currentSlot
 
-  # generate certificate
-  cardano-cli $ERA stake-address registration-certificate \
-    --stake-verification-key-file stake.vkey \
-    --out-file stake.cert \
-    --key-reg-deposit-amt $stakeAddressDeposit
-  echo "Stake address certificate generated and saved to '$WORK_DIR/stake.cert'"
-
   # estimate fee
   fee=$(cardano-cli $ERA transaction build \
       --tx-in ${txIn} \
-      --tx-out $(cat payment.addr)+1000000 \
-      --change-address $(cat payment.addr) \
+      --tx-out ${addr}+1000000 \
+      --change-address ${addr} \
       $(get_network) \
-      --certificate-file stake.cert \
+      --certificate-file block-producer/stake.cert \
       --invalid-hereafter $(( ${currentSlot} + 1000)) \
       --witness-override 2 \
       --out-file tx.draft)
   echo $fee
 
   # Parse transaction and get fee as number
-  cardano-cli debug transaction view --tx-file tx.draft > tx.json
-  feeNum=$(jq '.fee | gsub("[^0-9]"; "") | tonumber' tx.json)
+  feeNum=$(cardano-cli debug transaction view --tx-file tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   # Calculate change
   txOut=$(($currentBalance - $stakeAddressDeposit - $feeNum))
@@ -240,24 +216,31 @@ build-sign-stake-reg-cert() {
   # Build the transaction
   cardano-cli $ERA transaction build-raw \
       --tx-in ${txIn} \
-      --tx-out $(cat payment.addr)+${txOut} \
+      --tx-out ${addr}+${txOut} \
       --invalid-hereafter $((${currentSlot} + 1000)) \
       --fee ${feeNum} \
-      --certificate-file stake.cert \
+      --certificate-file block-producer/stake.cert \
       --out-file tx.raw
+  
+  echo "Raw transaction to submit stake certificate generated, saved at 'keys/tx.raw'"
+}
+
+sign-raw-stake-cert(){
+  if [ -e "tx.signed" ]; then
+    echo -e "${Red}Error!! Signed transaction to submit stake certificate already present and saved to 'keys/tx.signed'${Red}"
+    exit 0
+  fi
 
   # Sign and Submit the transaction
   cardano-cli $ERA transaction sign \
       --tx-body-file tx.raw \
-      --signing-key-file payment.skey \
-      --signing-key-file stake.skey \
+      --signing-key-file payment/payment.skey \
+      --signing-key-file stake/stake.skey \
       $(get_network) \
       --out-file tx.signed
-  
-  echo "Transaction to submit certificate created and signed, saved at '$WORK_DIR/tx.signed'"
 }
 
-submit-stake-reg-cert() {
+submit-stake-cert() {
   cardano-cli $ERA transaction submit \
     --tx-file tx.signed \
     $(get_network)
@@ -420,30 +403,40 @@ help() {
   echo "usage: ${__me} [-h|--help] <command>"
   echo
   echo "Which action command do you want?"
+
   echo -e "  ${Blue}bash${Color_Off}"
-  echo "    Exec into container folder with keys. You can view or copy them from there."
+  echo "    Mount all volumes and exec into container."
+
   echo -e "  ${Blue}balance${Color_Off}"
   echo "    Check the balance of payment.addr"
-  echo -e "  ${Blue}gen-wallet${Color_Off}"
-  echo "    Generate wallet keys 'payment.skey', 'payment.vkey' 'payment.addr', 'stake.skey', 'stake.vkey'"
-  echo "    and 'stake.addr'. Will also check that keys dont exist to avoid overwrite"
-  echo -e "  ${Blue}gen-block-producer${Color_Off}"
-  echo "    Generate block producer keys 'cold.skey', 'cold.vkey' 'cold.counter', 'kes.skey', 'kes.vkey'"
-  echo "    'vrf.skey', and 'vrf.vkey'. Will also check that keys dont exist to avoid overwrite"
+
+  echo -e "  ${Blue}gen-payment-keys${Color_Off}"
+  echo "    Generate 'payment.skey', 'payment.vkey' and 'payment.addr', will ask before overwrite"
+
+  echo -e "  ${Blue}gen-stake-keys${Color_Off}"
+  echo "    Generate 'stake.skey', 'stake.vkey' and 'stake.addr', will ask before overwrite"
+
+  echo -e "  ${Blue}gen-cold-keys${Color_Off}"
+  echo "    Generate block producer 'cold.skey', 'cold.vkey' 'cold.counter', 'vrf.skey', and 'vrf.vkey'. Will ask before overwrite"
+
   echo -e "  ${Blue}gen-op-cert${Color_Off}"
-  echo "    Generate operational certificate, no overwrite"
-  echo -e "  ${Blue}rotate-kes${Color_Off}"
-  echo "    Rotate KES keys by creating new KES keys and node.cert inside rotate folder so as not to overwrite existing keys and cert."
-  echo -e "  ${Blue}build-sign-stake-reg-cert${Color_Off}"
-  echo "    Create stake registration certificate and sign it"
-  echo -e "  ${Blue}submit-stake-reg-cert${Color_Off}"
+  echo "    Generate or rotate 'kes.vkey', 'kes.vkey' and 'node.cert', will confirm before overwrite"
+
+  echo -e "  ${Blue}gen-raw-stake-cert${Color_Off}"
+  echo "    Create raw stake registration certificate transaction tx.raw"
+
+  echo -e "  ${Blue}submit-stake-cert${Color_Off}"
   echo "    Submit stake registration certificate to the blockchain"
+
   echo -e "  ${Blue}pool-data${Color_Off}"
   echo "    Generate poolMetaData.json. You need to upload it to a server after generation"
+
   echo -e "  ${Blue}build-sign-pool-cert${Color_Off}"
   echo "    Create pool registration certificate and sign it"
+
   echo -e "  ${Blue}submit-pool-cert${Color_Off}"
   echo "    Submit pool registration certificate to the blockchain"
+
   echo -e "  ${Blue}details${Color_Off}"
   echo "    Get details about stake pool"
 }
@@ -456,7 +449,7 @@ fi
 
 __command="$1"
 case "$__command" in
-  help|bash|balance|gen-wallet|gen-block-producer|gen-op-cert|rotate-kes|build-sign-stake-reg-cert|submit-stake-reg-cert|pool-data|build-sign-pool-cert|submit-pool-cert|details)
+  help|bash|balance|gen-payment-keys|gen-stake-keys|gen-cold-keys|gen-op-cert|gen-raw-stake-cert|submit-stake-cert|pool-data|build-sign-pool-cert|submit-pool-cert|details)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"

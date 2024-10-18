@@ -3,7 +3,16 @@ set -eu
 
 # ---------------------------- REGION CONFIGS ---------------------------
 CONFIGS_DIR=/runtime/files
-curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/config.json --output-dir ${CONFIGS_DIR}
+
+# Config file for block producer is different
+EXTRA_BLOCK_PRODUCER_ARGS=""
+if [[ "${NODE_TYPE}" == "block-producer" ]]; then
+    curl -o ${CONFIGS_DIR}/config.json -J https://book.world.dev.cardano.org/environments/${NETWORK}/config-bp.json
+    EXTRA_BLOCK_PRODUCER_ARGS="--shelley-kes-key $KES --shelley-vrf-key $VRF --shelley-operational-certificate $CERT"
+else
+    curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/config.json --output-dir ${CONFIGS_DIR}
+fi
+
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/db-sync-config.json --output-dir ${CONFIGS_DIR}
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/submit-api-config.json --output-dir ${CONFIGS_DIR}
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/topology.json --output-dir ${CONFIGS_DIR}
@@ -12,18 +21,34 @@ curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/shelley-ge
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/alonzo-genesis.json --output-dir ${CONFIGS_DIR}
 curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/conway-genesis.json --output-dir ${CONFIGS_DIR}
 
-# To Update config as needed; Load the JSON into a variable
+# Update config.json
 json_data=$(cat $CONFIGS_DIR/config.json)
-
-# Modify the values with jq as needed
 IFS=',' read -r -a CONFIG_CHANGES <<< "$CONFIG_UPDATES"
 for change in "${CONFIG_CHANGES[@]}"
 do
     json_data=$(echo "$json_data" | jq "$change")
 done
-
-# Write the modified JSON back to the file
 echo "$json_data" > $CONFIGS_DIR/config.json
+
+# Update topology.json
+topology_data=$(cat $CONFIGS_DIR/topology.json)
+topology_data=$(echo "$topology_data" | jq ".localRoots[0].trustable = true")
+IFS=',' read -r -a TOPOLOGY_CHANGES <<< "$TOPOLOGY_ACCESS_POINTS"
+loop_index=0
+for url in "${TOPOLOGY_CHANGES[@]}"
+do
+    topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].address = \"$url\"")
+    topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].port = 6000")
+    topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Node $url\"")
+    loop_index=$(expr $loop_index + 1)
+done
+if [[ "${NODE_TYPE}" == "block-producer" ]]; then
+    topology_data=$(echo "$topology_data" | jq ".bootstrapPeers = null")
+    topology_data=$(echo "$topology_data" | jq ".useLedgerAfterSlot = -1")
+else
+    topology_data=$(echo "$topology_data" | jq ".localRoots[0].comment = \"Do NOT advertise the block-producing node\"")
+fi
+echo "$topology_data" > $CONFIGS_DIR/topology.json
 # ---------------------------- END REGION CONFIGS ------------------------
 
 # ---------------------------- REGION SNAPSHOT ---------------------------
@@ -58,25 +83,11 @@ else
 fi
 # ---------------------------- END REGION SNAPSHOT -----------------------
 
-# Check if keys exist to start as relay or block producer
-if [[ -n "$KES" ]]; then
-    cardano-node run \
-        --config $CONFIG \
-        --topology $TOPOLOGY \
-        --socket-path $SOCKET \
-        --database-path $DB_DIR \
-        --host-addr $CNODE_HOST \
-        --port $CNODE_PORT \
-        --shelley-kes-key $KES \
-        --shelley-vrf-key $VRF \
-        --shelley-operational-certificate $CERT
-else
-    cardano-node run \
-        --config $CONFIG \
-        --topology $TOPOLOGY \
-        --socket-path $SOCKET \
-        --database-path $DB_DIR \
-        --host-addr $CNODE_HOST \
-        --port $CNODE_PORT
-fi
-
+cardano-node run \
+    --config $CONFIG \
+    --topology $TOPOLOGY \
+    --socket-path $SOCKET \
+    --database-path $DB_DIR \
+    --host-addr $CNODE_HOST \
+    --port $CNODE_PORT \
+    $EXTRA_BLOCK_PRODUCER_ARGS
