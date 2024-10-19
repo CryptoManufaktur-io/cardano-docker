@@ -247,13 +247,6 @@ submit-stake-tran() {
   cardano-cli $ERA transaction submit \
     --tx-file tx.signed \
     $(get_network)
-
-  result=$?
-  if [ "${result}" -eq 0 ]; then
-    echo -e "${Green}tx.signed submitted successfully${Color_Off}"
-  else
-    echo -e "${Red}Error!! Could not submit tx.signed${Color_Off}"
-  fi
 }
 
 pool-data() {
@@ -418,13 +411,6 @@ submit-pool-tran() {
   cardano-cli $ERA transaction submit \
     --tx-file txp.signed \
     $(get_network)
-
-  result=$?
-  if [ "${result}" -eq 0 ]; then
-    echo -e "${Green}txp.signed submitted successfully${Color_Off}"
-  else
-    echo -e "${Red}Error!! Could not submit txp.signed${Color_Off}"
-  fi
 }
 
 details(){
