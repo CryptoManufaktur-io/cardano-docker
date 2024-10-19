@@ -278,11 +278,16 @@ pool-data() {
 }
 
 gen-pool-cert() {
+  if [ -e "pool.cert" ]; then
+    echo -e "${Red}Error!! pool.cert already exists${Color_Off}"
+    exit 0
+  fi
+  
   if [ ! -e "poolMetaData.json" ]; then
     echo -e "${Red}Error!! keys/poolMetaData.json does not exists${Color_Off}"
     exit 0
   fi
-  
+
   read -r -p "Enter URL for poolMetaData.json (Max 64 characters, no redirect): " metadata_url
 
   # Get hash from online file
