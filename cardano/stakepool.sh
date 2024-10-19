@@ -223,7 +223,7 @@ gen-tran-stake-cert() {
       --certificate-file block-producer/stake.cert \
       --out-file tx.raw
   
-  echo "${Green}Raw transaction to submit stake certificate generated, saved at keys/tx.raw${Color_Off}"
+  echo -e "${Green}Raw transaction to submit stake certificate generated, saved at keys/tx.raw${Color_Off}"
 }
 
 sign-tran-stake-cert(){
@@ -240,7 +240,7 @@ sign-tran-stake-cert(){
       $(get_network) \
       --out-file tx.signed
   
-  echo "${Green}Transaction to submit stake certificate signed, saved at keys/tx.signed${Color_Off}"
+  echo -e "${Green}Transaction to submit stake certificate signed, saved at keys/tx.signed${Color_Off}"
 }
 
 submit-stake-tran() {
@@ -250,15 +250,15 @@ submit-stake-tran() {
 
   result=$?
   if [ "${result}" -eq 0 ]; then
-    echo "${Green}tx.signed submitted successfully${Color_Off}"
+    echo -e "${Green}tx.signed submitted successfully${Color_Off}"
   else
-    echo "${Red}Error!! Could not submit tx.signed${Color_Off}"
+    echo -e "${Red}Error!! Could not submit tx.signed${Color_Off}"
   fi
 }
 
 pool-data() {
   if [ -e "poolMetaData.json" ]; then
-    echo "${Red}Error!! keys/poolMetaData.json already exists${Color_Off}"
+    echo -e "${Red}Error!! keys/poolMetaData.json already exists${Color_Off}"
     exit 0
   fi
 
@@ -279,7 +279,7 @@ pool-data() {
 
 gen-pool-cert() {
   if [ ! -e "poolMetaData.json" ]; then
-    echo "${Red}Error!! keys/poolMetaData.json does not exists${Color_Off}"
+    echo -e "${Red}Error!! keys/poolMetaData.json does not exists${Color_Off}"
     exit 0
   fi
   
@@ -316,7 +316,7 @@ gen-pool-cert() {
 
 gen-deleg-cert() {
   if [ -e "deleg.cert" ]; then
-    echo "${Red}Error!! deleg.cert already exists${Color_Off}"
+    echo -e "${Red}Error!! deleg.cert already exists${Color_Off}"
     exit 0
   fi
 
@@ -331,7 +331,7 @@ gen-deleg-cert() {
 
 gen-raw-pool-tran() {
   if [ -e "txp.raw" ]; then
-    echo "${Red}Error!! keys/txp.raw already generated${Color_Off}"
+    echo -e "${Red}Error!! keys/txp.raw already generated${Color_Off}"
     exit 0
   fi
   
@@ -393,7 +393,7 @@ gen-raw-pool-tran() {
 
 sign-raw-pool-tran() {
   if [ -e "txp.signed" ]; then
-    echo "${Red}Error!! keys/txp.signed already generated${Color_Off}"
+    echo -e "${Red}Error!! keys/txp.signed already generated${Color_Off}"
     exit 0
   fi
 
@@ -416,9 +416,9 @@ submit-pool-tran() {
 
   result=$?
   if [ "${result}" -eq 0 ]; then
-    echo "${Green}txp.signed submitted successfully${Color_Off}"
+    echo -e "${Green}txp.signed submitted successfully${Color_Off}"
   else
-    echo "${Red}Error!! Could not submit txp.signed${Color_Off}"
+    echo -e "${Red}Error!! Could not submit txp.signed${Color_Off}"
   fi
 }
 
