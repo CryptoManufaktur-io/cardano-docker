@@ -9,10 +9,6 @@ Green='\033[0;32m'        # Green
 Yellow='\033[0;33m'       # Yellow
 Blue='\033[0;34m'         # Blue
 
-bash(){
-    /bin/bash
-}
-
 get_network(){
   if [[ "$NETWORK" == "preview" ]]; then
     command="--testnet-magic 2"
@@ -23,6 +19,28 @@ get_network(){
   fi
 
   echo $command  
+}
+
+bash(){
+    /bin/bash
+}
+
+balance() {
+  if [ ! -e "block-producer/payment.addr" ]; then
+    echo -e "${Red}Error!! block-producer/payment.addr not present${Color_Off}"
+    exit 0
+  fi
+
+  addr=$(cat block-producer/payment.addr)
+  bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
+  currentBalance=$(echo $bal | jq -r .[].value.lovelace)
+  keys=$(echo $bal | jq -r 'keys[]')
+
+  echo "Balance for '$addr': ${currentBalance:-0} lovelace"
+  echo -e "${Green}utxos${Color_Off}"
+  echo $keys
+  echo 
+  echo "You can topup the address if needed using the address hash shown"
 }
 
 gen-payment-keys() {
@@ -152,27 +170,9 @@ gen-op-cert() {
   echo -e "${Green}Operational certificate generated successfully, it is saved under keys/block-producer folder. You can now copy everything on keys/block-producer folder to your node and restart it.${Color_Off}"
 }
 
-balance() {
-  if [ ! -e "block-producer/payment.addr" ]; then
-    echo -e "${Red}Error!! Payment address not present, you need payment.addr inside keys/block-producer folder${Color_Off}"
-    exit 0
-  fi
-
-  addr=$(cat block-producer/payment.addr)
-  bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
-  currentBalance=$(echo $bal | jq -r .[].value.lovelace)
-  keys=$(echo $bal | jq -r 'keys[]')
-
-  echo "Balance for '$addr': ${currentBalance:-0} lovelace"
-  echo -e "${Blue}utxos${Color_Off}"
-  echo $keys
-  echo 
-  echo "You can topup the address if needed using the address hash shown"
-}
-
-gen-raw-stake-cert() {
+gen-tran-stake-cert() {
   if [ -e "tx.raw" ]; then
-    echo -e "${Red}Error!! Raw transaction to submit stake certificate already generated and saved to 'keys/tx.raw'${Red}"
+    echo -e "${Red}Error!! Raw transaction to submit stake certificate already generated and saved to keys/tx.raw${Color_Off}"
     exit 0
   fi
 
@@ -223,12 +223,12 @@ gen-raw-stake-cert() {
       --certificate-file block-producer/stake.cert \
       --out-file tx.raw
   
-  echo "Raw transaction to submit stake certificate generated, saved at 'keys/tx.raw'"
+  echo "${Green}Raw transaction to submit stake certificate generated, saved at keys/tx.raw${Color_Off}"
 }
 
-sign-raw-stake-cert(){
+sign-tran-stake-cert(){
   if [ -e "tx.signed" ]; then
-    echo -e "${Red}Error!! Signed transaction to submit stake certificate already present and saved to 'keys/tx.signed'${Red}"
+    echo -e "${Red}Error!! Signed transaction to submit stake certificate already present and saved to keys/tx.signed${Color_Off}"
     exit 0
   fi
 
@@ -239,23 +239,32 @@ sign-raw-stake-cert(){
       --signing-key-file stake/stake.skey \
       $(get_network) \
       --out-file tx.signed
+  
+  echo "${Green}Transaction to submit stake certificate signed, saved at keys/tx.signed${Color_Off}"
 }
 
-submit-stake-cert() {
+submit-stake-tran() {
   cardano-cli $ERA transaction submit \
     --tx-file tx.signed \
     $(get_network)
+
+  result=$?
+  if [ "${result}" -eq 0 ]; then
+    echo "${Green}tx.signed submitted successfully${Color_Off}"
+  else
+    echo "${Red}Error!! Could not submit tx.signed${Color_Off}"
+  fi
 }
 
 pool-data() {
   if [ -e "poolMetaData.json" ]; then
-    echo "'$WORK_DIR/poolMetaData.json' already exists"
+    echo "${Red}Error!! keys/poolMetaData.json already exists${Color_Off}"
     exit 0
   fi
 
   read -r -p "Enter Pool Name: " pool_name
   read -r -p "Enter Pool Descrption: " pool_desc
-  read -r -p "Enter Pool Ticker (3-5 characters only): " pool_ticker
+  read -r -p "Enter Pool Ticker (3-5 characters only, A-Z and 0-9 only): " pool_ticker
   read -r -p "Enter Pool Homepage http:// or https://: " pool_url
 
   # Create JSON file with your metadata
@@ -265,14 +274,12 @@ pool-data() {
   cardano-cli $ERA stake-pool metadata-hash \
       --pool-metadata-file poolMetaData.json > poolMetaDataHash.txt
 
-  # Copy to source folder
-  cp poolMetaData.json ../source/poolMetaData.json
-  echo -e "${Blue}You need to upload the file created in cardano-docker directory to a publicly reachable URL${Color_Off}"
+  echo -e "${Green}Done, You need to upload poolMetaData.json to a publicly reachable URL${Color_Off}"
 }
 
-build-sign-pool-cert() {
-  if [ -e "txp.signed" ]; then
-    echo "'$WORK_DIR/txp.signed' already generated and signed"
+gen-pool-cert() {
+  if [ ! -e "poolMetaData.json" ]; then
+    echo "${Red}Error!! keys/poolMetaData.json does not exists${Color_Off}"
     exit 0
   fi
   
@@ -283,12 +290,51 @@ build-sign-pool-cert() {
   hash1=$(cardano-cli $ERA stake-pool metadata-hash --pool-metadata-file <(curl -s -L $metadata_url))
 
   if [ "$hash0" != "$hash1" ]; then
-    cp poolMetaData.json ../source/poolMetaData.json
-    echo "The hash for poolMetaData.json from remote does not match local. Re upload it again."
-    echo "It has been copied to source folder ie cardano-docker folder"
+    echo "The hash for poolMetaData.json from remote does not match local. Re-upload or check it again."
     exit 0
   fi
 
+  # Generate the stake pool registration certificate
+  read -r -p "Enter relay node URLs: " relay_url
+  cardano-cli $ERA stake-pool registration-certificate \
+      --cold-verification-key-file cold-keys/cold.vkey \
+      --vrf-verification-key-file vrf.vkey \
+      --pool-pledge 100000000 \
+      --pool-cost 340000000 \
+      --pool-margin 0.01 \
+      --pool-reward-account-verification-key-file stake/stake.vkey \
+      --pool-owner-stake-verification-key-file stake/stake.vkey \
+      $(get_network) \
+      --single-host-pool-relay $relay_url  \
+      --pool-relay-port 6000 \
+      --metadata-url $metadata_url \
+      --metadata-hash $(cat poolMetaDataHash.txt) \
+      --out-file pool.cert
+  
+  echo -e "${Green}pool.cert generated successfully${Color_Off}"
+}
+
+gen-deleg-cert() {
+  if [ -e "deleg.cert" ]; then
+    echo "${Red}Error!! deleg.cert already exists${Color_Off}"
+    exit 0
+  fi
+
+  # Create a delegation certificate pledge
+  cardano-cli $ERA stake-address stake-delegation-certificate \
+      --stake-verification-key-file stake/stake.vkey \
+      --cold-verification-key-file cold-keys/cold.vkey \
+      --out-file deleg.cert
+
+  echo -e "${Green}deleg.cert generated successfully${Color_Off}"
+}
+
+gen-raw-pool-tran() {
+  if [ -e "txp.raw" ]; then
+    echo "${Red}Error!! keys/txp.raw already generated${Color_Off}"
+    exit 0
+  fi
+  
   # Find the minimum pool cost:
   PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
 
@@ -297,29 +343,6 @@ build-sign-pool-cert() {
 
   stakePoolDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakePoolDeposit')
   echo $stakePoolDeposit
-
-  # Generate the stake pool registration certificate
-  read -r -p "Enter relay node URL: " relay_url
-  cardano-cli $ERA stake-pool registration-certificate \
-      --cold-verification-key-file cold.vkey \
-      --vrf-verification-key-file vrf.vkey \
-      --pool-pledge 100000000 \
-      --pool-cost 340000000 \
-      --pool-margin 0.01 \
-      --pool-reward-account-verification-key-file stake.vkey \
-      --pool-owner-stake-verification-key-file stake.vkey \
-      $(get_network) \
-      --single-host-pool-relay $relay_url  \
-      --pool-relay-port 6000 \
-      --metadata-url $metadata_url \
-      --metadata-hash $(cat poolMetaDataHash.txt) \
-      --out-file pool.cert
-
-  # Create a delegation certificate pledge
-  cardano-cli $ERA stake-address stake-delegation-certificate \
-      --stake-verification-key-file stake.vkey \
-      --cold-verification-key-file cold.vkey \
-      --out-file deleg.cert
 
   # Check balance
   addr=$(cat payment.addr)
@@ -339,8 +362,8 @@ build-sign-pool-cert() {
   feeNum=1000000 # 1 ADA
   fee=$(cardano-cli $ERA transaction build \
       --tx-in ${txIn} \
-      --tx-out $(cat payment.addr)+${feeNum} \
-      --change-address $(cat payment.addr) \
+      --tx-out ${addr}+${feeNum} \
+      --change-address ${addr} \
       $(get_network) \
       --certificate-file pool.cert \
       --certificate-file deleg.cert \
@@ -350,8 +373,7 @@ build-sign-pool-cert() {
   echo $fee
 
   # Parse transaction and get fee as number
-  cardano-cli debug transaction view --tx-file txp.draft > txp.json
-  feeNum=$(jq '.fee | gsub("[^0-9]"; "") | tonumber' txp.json)
+  feeNum=$(cardano-cli debug transaction view --tx-file txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   txOut=$(($currentBalance - $stakePoolDeposit - $feeNum))
   echo Change: ${txOut}
@@ -359,32 +381,50 @@ build-sign-pool-cert() {
   # Build transaction
   cardano-cli $ERA transaction build-raw \
       --tx-in ${txIn} \
-      --tx-out $(cat payment.addr)+${txOut} \
+      --tx-out ${addr}+${txOut} \
       --invalid-hereafter $((${currentSlot} + 1000)) \
       --fee $feeNum \
       --certificate-file pool.cert \
       --certificate-file deleg.cert \
       --out-file txp.raw
 
+  echo -e "${Green}txp.raw generated successfully${Color_Off}"
+}
+
+sign-raw-pool-tran() {
+  if [ -e "txp.signed" ]; then
+    echo "${Red}Error!! keys/txp.signed already generated${Color_Off}"
+    exit 0
+  fi
+
   # Sign
   cardano-cli $ERA transaction sign \
       --tx-body-file txp.raw \
-      --signing-key-file payment.skey \
-      --signing-key-file cold.skey \
-      --signing-key-file stake.skey \
+      --signing-key-file payment/payment.skey \
+      --signing-key-file cold-keys/cold.skey \
+      --signing-key-file stake/stake.skey \
       $(get_network) \
       --out-file txp.signed
+  
+  echo -e "${Green}txp.signed generated successfully${Color_Off}"
 }
 
-submit-pool-cert() {
+submit-pool-tran() {
   cardano-cli $ERA transaction submit \
     --tx-file txp.signed \
     $(get_network)
+
+  result=$?
+  if [ "${result}" -eq 0 ]; then
+    echo "${Green}txp.signed submitted successfully${Color_Off}"
+  else
+    echo "${Red}Error!! Could not submit txp.signed${Color_Off}"
+  fi
 }
 
 details(){
   cardano-cli $ERA stake-pool id \
-    --cold-verification-key-file cold.vkey \
+    --cold-verification-key-file cold-keys/cold.vkey \
     --output-format hex > stakepoolid.txt
 
   id=$(cat stakepoolid.txt)
@@ -420,19 +460,31 @@ help() {
   echo -e "  ${Blue}gen-op-cert${Color_Off}"
   echo "    Generate or rotate 'kes.vkey', 'kes.vkey' and 'node.cert', will confirm before overwrite"
 
-  echo -e "  ${Blue}gen-raw-stake-cert${Color_Off}"
+  echo -e "  ${Blue}gen-tran-stake-cert${Color_Off}"
   echo "    Create raw stake registration certificate transaction tx.raw"
 
-  echo -e "  ${Blue}submit-stake-cert${Color_Off}"
-  echo "    Submit stake registration certificate to the blockchain"
+  echo -e "  ${Blue}sign-tran-stake-cert${Color_Off}"
+  echo "    Sign raw stake registration certificate transaction and generate tx.signed"
+
+  echo -e "  ${Blue}submit-stake-tran${Color_Off}"
+  echo "    Submit stake registration certificate transaction to the blockchain"
 
   echo -e "  ${Blue}pool-data${Color_Off}"
   echo "    Generate poolMetaData.json. You need to upload it to a server after generation"
 
-  echo -e "  ${Blue}build-sign-pool-cert${Color_Off}"
-  echo "    Create pool registration certificate and sign it"
+  echo -e "  ${Blue}gen-pool-cert${Color_Off}"
+  echo "    Create pool registration certificate"
 
-  echo -e "  ${Blue}submit-pool-cert${Color_Off}"
+  echo -e "  ${Blue}gen-deleg-cert${Color_Off}"
+  echo "    Create delegation certificate to pledge stake"
+
+  echo -e "  ${Blue}gen-raw-pool-tran${Color_Off}"
+  echo "    Generate transaction to submit pool and delegation certificates"
+
+  echo -e "  ${Blue}sign-raw-pool-tran${Color_Off}"
+  echo "    Sign transaction to submit pool and delegation certificates"
+
+  echo -e "  ${Blue}submit-pool-tran${Color_Off}"
   echo "    Submit pool registration certificate to the blockchain"
 
   echo -e "  ${Blue}details${Color_Off}"
@@ -447,7 +499,7 @@ fi
 
 __command="$1"
 case "$__command" in
-  help|bash|balance|gen-payment-keys|gen-stake-keys|gen-cold-keys|gen-op-cert|gen-raw-stake-cert|submit-stake-cert|pool-data|build-sign-pool-cert|submit-pool-cert|details)
+  help|bash|balance|gen-payment-keys|gen-stake-keys|gen-cold-keys|gen-op-cert|gen-tran-stake-cert|sign-tran-stake-cert|submit-stake-tran|pool-data|gen-pool-cert|gen-deleg-cert|gen-raw-pool-tran|sign-raw-pool-tran|submit-pool-tran|details)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"
