@@ -350,7 +350,7 @@ gen-raw-pool-tran() {
   echo $stakePoolDeposit
 
   # Check balance
-  addr=$(cat payment.addr)
+  addr=$(cat block-producer/payment.addr)
   bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
   currentBalance=$(echo $bal | jq -r .[].value.lovelace)
   echo currentBalance: $currentBalance
