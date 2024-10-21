@@ -193,10 +193,15 @@ gen-tran-stake-cert() {
   currentBalance=$(echo $bal | jq -r .[].value.lovelace)
   echo currentBalance: $currentBalance
   
-  # Get stakeAddressDeposit
-  PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
-  stakeAddressDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakeAddressDeposit')
-  echo stakeAddressDeposit: $stakeAddressDeposit
+  if [[ "$calculateDepositFee" == "yes" ]]; then
+    # Get stakeAddressDeposit
+    PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
+    stakeAddressDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakeAddressDeposit')
+    echo stakeAddressDeposit: $stakeAddressDeposit
+  else
+    echo "No need to pay deposit again"
+    stakeAddressDeposit=0
+  fi
 
   # tx-in
   txIn=$(echo $bal | jq -r 'keys[0]')
@@ -206,25 +211,20 @@ gen-tran-stake-cert() {
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
   echo Current Slot: $currentSlot
 
-  if [[ "$calculateDepositFee" == "yes" ]]; then
-    # estimate fee
-    fee=$(cardano-cli $ERA transaction build \
-        --tx-in ${txIn} \
-        --tx-out ${addr}+1000000 \
-        --change-address ${addr} \
-        $(get_network) \
-        --certificate-file block-producer/stake.cert \
-        --invalid-hereafter $(( ${currentSlot} + 1000)) \
-        --witness-override 2 \
-        --out-file block-producer/tx.draft)
-    echo $fee
+  # estimate fee
+  fee=$(cardano-cli $ERA transaction build \
+      --tx-in ${txIn} \
+      --tx-out ${addr}+1000000 \
+      --change-address ${addr} \
+      $(get_network) \
+      --certificate-file block-producer/stake.cert \
+      --invalid-hereafter $(( ${currentSlot} + 1000)) \
+      --witness-override 2 \
+      --out-file block-producer/tx.draft)
+  echo $fee
 
-    # Parse transaction and get fee as number
-    feeNum=$(cardano-cli debug transaction view --tx-file block-producer/tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
-  else
-    echo "No need to pay deposit again"
-    feeNum=0
-  fi
+  # Parse transaction and get fee as number
+  feeNum=$(cardano-cli debug transaction view --tx-file block-producer/tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   # Calculate change
   txOut=$(($currentBalance - $stakeAddressDeposit - $feeNum))
@@ -382,14 +382,15 @@ gen-raw-pool-tran() {
     fi
   fi
   
-  # Find the minimum pool cost:
-  PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
-
-  minPoolCost=$(echo $PROTOCOL_JSON | jq -r .minPoolCost)
-  echo minPoolCost: ${minPoolCost}
-
-  stakePoolDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakePoolDeposit')
-  echo $stakePoolDeposit
+  if [[ "$calculateDepositFee" == "yes" ]]; then
+    # Get stakePoolDeposit
+    PROTOCOL_JSON=$(cardano-cli $ERA query protocol-parameters $(get_network))
+    stakePoolDeposit=$(echo $PROTOCOL_JSON | jq -r '.stakePoolDeposit')
+    echo $stakePoolDeposit
+  else
+    echo "No need to pay deposit again"
+    stakePoolDeposit=0
+  fi
 
   # Check balance
   addr=$(cat block-producer/payment.addr)
@@ -405,27 +406,22 @@ gen-raw-pool-tran() {
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
   echo Current Slot: $currentSlot
 
-  if [[ "$calculateDepositFee" == "yes" ]]; then
-    # Estimate fee
-    feeNum=1000000 # 1 ADA
-    fee=$(cardano-cli $ERA transaction build \
-        --tx-in ${txIn} \
-        --tx-out ${addr}+${feeNum} \
-        --change-address ${addr} \
-        $(get_network) \
-        --certificate-file block-producer/pool.cert \
-        --certificate-file block-producer/deleg.cert \
-        --invalid-hereafter $(( ${currentSlot} + 10000)) \
-        --witness-override 2 \
-        --out-file block-producer/txp.draft)
-    echo $fee
+  # Estimate fee
+  feeNum=1000000 # 1 ADA
+  fee=$(cardano-cli $ERA transaction build \
+      --tx-in ${txIn} \
+      --tx-out ${addr}+${feeNum} \
+      --change-address ${addr} \
+      $(get_network) \
+      --certificate-file block-producer/pool.cert \
+      --certificate-file block-producer/deleg.cert \
+      --invalid-hereafter $(( ${currentSlot} + 10000)) \
+      --witness-override 2 \
+      --out-file block-producer/txp.draft)
+  echo $fee
 
-    # Parse transaction and get fee as number
-    feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
-  else
-    echo "No need to pay deposit again"
-    feeNum=0
-  fi
+  # Parse transaction and get fee as number
+  feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   txOut=$(($currentBalance - $stakePoolDeposit - $feeNum))
   echo "Change (currentBalance[$currentBalance] - stakeAddressDeposit[$stakePoolDeposit] - feeNum[$feeNum]): ${txOut}"
