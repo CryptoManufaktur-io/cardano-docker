@@ -54,12 +54,6 @@ gen-payment-keys() {
   cardano-cli $ERA address key-gen \
       --verification-key-file payment/payment.vkey \
       --signing-key-file payment/payment.skey
-
-  # Generating Payment address
-  cardano-cli $ERA address build \
-      --payment-verification-key-file payment/payment.vkey \
-      --out-file block-producer/payment.addr \
-      $(get_network)
   
   echo -e "${Green}Payment keys generated successfully, they are saved under keys/payment folder.${Color_Off}"
 }
@@ -80,6 +74,13 @@ gen-stake-keys() {
   cardano-cli $ERA stake-address build \
       --stake-verification-key-file stake/stake.vkey \
       --out-file block-producer/stake.addr \
+      $(get_network)
+
+  # Generating Payment address
+  cardano-cli $ERA address build \
+      --payment-verification-key-file payment/payment.vkey \
+      --stake-verification-key-file stake/stake.vkey \
+      --out-file block-producer/payment.addr \
       $(get_network)
   
   # generate certificate
