@@ -170,7 +170,7 @@ gen-op-cert() {
   echo startKesPeriod: ${startKesPeriod}
 
   cardano-cli $ERA node issue-op-cert \
-      --kes-verification-key-file kes.vkey \
+      --kes-verification-key-file block-producer/kes.vkey \
       --cold-signing-key-file cold-keys/cold.skey \
       --operational-certificate-issue-counter cold-keys/cold.counter \
       --kes-period ${startKesPeriod} \
