@@ -320,7 +320,15 @@ gen-pool-cert() {
   fi
 
   read -r -p "Enter URL for poolMetaData.json (Max 64 characters, no redirect): " metadata_url
-  read -r -p "Enter relay node URLs (NO HTTP PART): " relay_url
+  
+  # Relay URLs
+  read -r -p "Enter relay node Public URLs (Space separated, no http part): " relay_urls
+  relay_urls_all=""
+  IFS=' ' read -r -a URLS <<< "$relay_urls"
+  for url in "${URLS[@]}"
+  do
+      relay_urls_all=$(echo "$relay_urls_all --single-host-pool-relay $url --pool-relay-port 6000")
+  done
 
   read -r -p "Enter pool pledge amount (ie 100000000): " pool_pledge
   read -r -p "Enter pool cost (ie 345000000): " pool_cost
@@ -336,8 +344,7 @@ gen-pool-cert() {
       --pool-reward-account-verification-key-file stake/stake.vkey \
       --pool-owner-stake-verification-key-file stake/stake.vkey \
       $(get_network) \
-      --single-host-pool-relay $relay_url  \
-      --pool-relay-port 6000 \
+      $relay_urls_all  \
       --metadata-url $metadata_url \
       --metadata-hash $(cat block-producer/poolMetaDataHash.txt) \
       --out-file block-producer/pool.cert
