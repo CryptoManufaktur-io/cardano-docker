@@ -296,8 +296,15 @@ verify-pool-data(){
 
 gen-pool-cert() {
   if [ -e "block-producer/pool.cert" ]; then
-    echo -e "${Red}Error!! block-producer/pool.cert already exists${Color_Off}"
-    exit 0
+    echo -e "${Red}READ CAREFULLY${Color_Off}"
+    read -r -p "Pool certificate exists in keys/block-producer folder, do you want to replace (only yes is accepted as input)? " do_replace
+
+    if [[ "$do_replace" == "yes" ]]; then
+      rm block-producer/pool.cert
+    else
+      echo "Operation aborted"
+      exit 0
+    fi
   fi
   
   if [ ! -e "block-producer/poolMetaData.json" ]; then
@@ -306,7 +313,7 @@ gen-pool-cert() {
   fi
 
   read -r -p "Enter URL for poolMetaData.json (Max 64 characters, no redirect): " metadata_url
-  read -r -p "Enter relay node URLs: " relay_url
+  read -r -p "Enter relay node URLs (NO HTTP PART): " relay_url
 
   read -r -p "Enter pool pledge amount (ie 100000000): " pool_pledge
   read -r -p "Enter pool cost (ie 345000000): " pool_cost
@@ -333,8 +340,15 @@ gen-pool-cert() {
 
 gen-deleg-cert() {
   if [ -e "block-producer/deleg.cert" ]; then
-    echo -e "${Red}Error!! block-producer/deleg.cert already exists${Color_Off}"
-    exit 0
+    echo -e "${Red}READ CAREFULLY${Color_Off}"
+    read -r -p "Delegation certificate exists in keys/block-producer folder, do you want to replace (only yes is accepted as input)? " do_replace
+
+    if [[ "$do_replace" == "yes" ]]; then
+      rm block-producer/deleg.cert
+    else
+      echo "Operation aborted"
+      exit 0
+    fi
   fi
 
   # Create a delegation certificate pledge
@@ -348,8 +362,15 @@ gen-deleg-cert() {
 
 gen-raw-pool-tran() {
   if [ -e "block-producer/txp.raw" ]; then
-    echo -e "${Red}Error!! keys/block-producer/txp.raw already generated${Color_Off}"
-    exit 0
+    echo -e "${Red}READ CAREFULLY${Color_Off}"
+    read -r -p "Raw pool transaction exists in keys/block-producer folder, do you want to replace (only yes is accepted as input)? " do_replace
+
+    if [[ "$do_replace" == "yes" ]]; then
+      rm block-producer/txp.raw
+    else
+      echo "Operation aborted"
+      exit 0
+    fi
   fi
   
   # Find the minimum pool cost:
@@ -384,7 +405,7 @@ gen-raw-pool-tran() {
       $(get_network) \
       --certificate-file block-producer/pool.cert \
       --certificate-file block-producer/deleg.cert \
-      --invalid-hereafter $(( ${currentSlot} + 1000)) \
+      --invalid-hereafter $(( ${currentSlot} + 10000)) \
       --witness-override 2 \
       --out-file block-producer/txp.draft)
   echo $fee
@@ -399,7 +420,7 @@ gen-raw-pool-tran() {
   cardano-cli $ERA transaction build-raw \
       --tx-in ${txIn} \
       --tx-out ${addr}+${txOut} \
-      --invalid-hereafter $((${currentSlot} + 1000)) \
+      --invalid-hereafter $(( ${currentSlot} + 10000)) \
       --fee $feeNum \
       --certificate-file block-producer/pool.cert \
       --certificate-file block-producer/deleg.cert \
@@ -410,8 +431,15 @@ gen-raw-pool-tran() {
 
 sign-raw-pool-tran() {
   if [ -e "block-producer/txp.signed" ]; then
-    echo -e "${Red}Error!! keys/block-producer/txp.signed already generated${Color_Off}"
-    exit 0
+    echo -e "${Red}READ CAREFULLY${Color_Off}"
+    read -r -p "Signed pool transaction exists in keys/block-producer folder, do you want to replace (only yes is accepted as input)? " do_replace
+
+    if [[ "$do_replace" == "yes" ]]; then
+      rm block-producer/txp.signed
+    else
+      echo "Operation aborted"
+      exit 0
+    fi
   fi
 
   # Sign
