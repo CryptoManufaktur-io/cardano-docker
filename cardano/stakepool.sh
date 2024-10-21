@@ -368,6 +368,8 @@ gen-deleg-cert() {
 }
 
 gen-raw-pool-tran() {
+  calculateDepositFee=${2:-yes}
+
   if [ -e "block-producer/txp.raw" ]; then
     echo -e "${Red}READ CAREFULLY${Color_Off}"
     read -r -p "Raw pool transaction exists in keys/block-producer folder, do you want to replace (only yes is accepted as input)? " do_replace
@@ -403,22 +405,27 @@ gen-raw-pool-tran() {
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
   echo Current Slot: $currentSlot
 
-  # Estimate fee
-  feeNum=1000000 # 1 ADA
-  fee=$(cardano-cli $ERA transaction build \
-      --tx-in ${txIn} \
-      --tx-out ${addr}+${feeNum} \
-      --change-address ${addr} \
-      $(get_network) \
-      --certificate-file block-producer/pool.cert \
-      --certificate-file block-producer/deleg.cert \
-      --invalid-hereafter $(( ${currentSlot} + 10000)) \
-      --witness-override 2 \
-      --out-file block-producer/txp.draft)
-  echo $fee
+  if [[ "$calculateDepositFee" == "yes" ]]; then
+    # Estimate fee
+    feeNum=1000000 # 1 ADA
+    fee=$(cardano-cli $ERA transaction build \
+        --tx-in ${txIn} \
+        --tx-out ${addr}+${feeNum} \
+        --change-address ${addr} \
+        $(get_network) \
+        --certificate-file block-producer/pool.cert \
+        --certificate-file block-producer/deleg.cert \
+        --invalid-hereafter $(( ${currentSlot} + 10000)) \
+        --witness-override 2 \
+        --out-file block-producer/txp.draft)
+    echo $fee
 
-  # Parse transaction and get fee as number
-  feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
+    # Parse transaction and get fee as number
+    feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
+  else
+    echo "No need to pay deposit again"
+    feeNum=0
+  fi
 
   txOut=$(($currentBalance - $stakePoolDeposit - $feeNum))
   echo "Change (currentBalance[$currentBalance] - stakeAddressDeposit[$stakePoolDeposit] - feeNum[$feeNum]): ${txOut}"
