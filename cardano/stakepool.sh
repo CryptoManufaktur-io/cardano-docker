@@ -221,7 +221,7 @@ gen-tran-stake-cert() {
 
   # Calculate change
   txOut=$(($currentBalance - $stakeAddressDeposit - $feeNum))
-  echo "Change (currentBalance - stakeAddressDeposit - feeNum): ${txOut}"
+  echo "Change (currentBalance[$currentBalance] - stakeAddressDeposit[$stakeAddressDeposit] - feeNum[$feeNum]): ${txOut}"
 
   # Build the transaction
   cardano-cli $ERA transaction build-raw \
@@ -414,7 +414,7 @@ gen-raw-pool-tran() {
   feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   txOut=$(($currentBalance - $stakePoolDeposit - $feeNum))
-  echo Change: ${txOut}
+  echo "Change (currentBalance[$currentBalance] - stakeAddressDeposit[$stakePoolDeposit] - feeNum[$feeNum]): ${txOut}"
 
   # Build transaction
   cardano-cli $ERA transaction build-raw \
