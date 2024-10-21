@@ -155,11 +155,15 @@ gen-op-cert() {
 
   # Generating KES Keys
   cardano-cli $ERA node key-gen-KES \
-      --verification-key-file kes.vkey \
+      --verification-key-file block-producer/kes.vkey \
       --signing-key-file block-producer/kes.skey
 
-  SHELLY_JSON=$(curl -s https://book.world.dev.cardano.org/environments/${NETWORK}/shelley-genesis.json)
-  slotsPerKESPeriod=$(echo $SHELLY_JSON | jq -r '.slotsPerKESPeriod')
+  # Get slotNo
+  echo "Provide slotsPerKESPeriod (You can get it by executing the command below on a running node)"
+  echo ""
+  echo -e "${Blue}./ethd cmd exec cardano-node cat /runtime/files/shelley-genesis.json | jq -r '.slotsPerKESPeriod'${Color_Off}"
+  echo ""
+  read -r -p "Enter slotsPerKESPeriod: " slotsPerKESPeriod
   echo slotsPerKESPeriod: ${slotsPerKESPeriod}
 
   startKesPeriod=$((${slotNo} / ${slotsPerKESPeriod}))
