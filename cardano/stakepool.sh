@@ -308,13 +308,17 @@ gen-pool-cert() {
   read -r -p "Enter URL for poolMetaData.json (Max 64 characters, no redirect): " metadata_url
   read -r -p "Enter relay node URLs: " relay_url
 
+  read -r -p "Enter pool pledge amount (ie 100000000): " pool_pledge
+  read -r -p "Enter pool cost (ie 345000000): " pool_cost
+  read -r -p "Enter pool margin % (ie 0.15 for 15%): " pool_margin
+
   # Generate the stake pool registration certificate
   cardano-cli $ERA stake-pool registration-certificate \
       --cold-verification-key-file cold-keys/cold.vkey \
       --vrf-verification-key-file block-producer/vrf.vkey \
-      --pool-pledge 100000000 \
-      --pool-cost 340000000 \
-      --pool-margin 0.01 \
+      --pool-pledge $pool_pledge \
+      --pool-cost $pool_cost \
+      --pool-margin $pool_margin \
       --pool-reward-account-verification-key-file stake/stake.vkey \
       --pool-owner-stake-verification-key-file stake/stake.vkey \
       $(get_network) \
