@@ -180,6 +180,8 @@ gen-op-cert() {
 }
 
 gen-tran-stake-cert() {
+  calculateDepositFee=${2:-yes}
+
   if [ -e "block-producer/tx.raw" ]; then
     echo -e "${Red}Error!! Raw transaction to submit stake certificate already generated and saved to keys/block-producer/tx.raw${Color_Off}"
     exit 0
@@ -204,20 +206,25 @@ gen-tran-stake-cert() {
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
   echo Current Slot: $currentSlot
 
-  # estimate fee
-  fee=$(cardano-cli $ERA transaction build \
-      --tx-in ${txIn} \
-      --tx-out ${addr}+1000000 \
-      --change-address ${addr} \
-      $(get_network) \
-      --certificate-file block-producer/stake.cert \
-      --invalid-hereafter $(( ${currentSlot} + 1000)) \
-      --witness-override 2 \
-      --out-file block-producer/tx.draft)
-  echo $fee
+  if [[ "$calculateDepositFee" == "yes" ]]; then
+    # estimate fee
+    fee=$(cardano-cli $ERA transaction build \
+        --tx-in ${txIn} \
+        --tx-out ${addr}+1000000 \
+        --change-address ${addr} \
+        $(get_network) \
+        --certificate-file block-producer/stake.cert \
+        --invalid-hereafter $(( ${currentSlot} + 1000)) \
+        --witness-override 2 \
+        --out-file block-producer/tx.draft)
+    echo $fee
 
-  # Parse transaction and get fee as number
-  feeNum=$(cardano-cli debug transaction view --tx-file block-producer/tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
+    # Parse transaction and get fee as number
+    feeNum=$(cardano-cli debug transaction view --tx-file block-producer/tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
+  else
+    echo "No need to pay deposit again"
+    feeNum=0
+  fi
 
   # Calculate change
   txOut=$(($currentBalance - $stakeAddressDeposit - $feeNum))
