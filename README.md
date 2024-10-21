@@ -17,39 +17,25 @@ curl -O -J https://book.world.dev.cardano.org/environments/${NETWORK}/conway-gen
 ```
 
 Supports the following networks:
+    # Check tip/sync status for any network
+    `./ethd tip`
+
 1. Testnet / Preview
     ```bash
     NetworkMagic: 2
-
-    # Alternative check tip for any network
-    ./ethd tip
     ```
 2. Testnet / Preprod
     ```bash
     NetworkMagic: 1
-
-    # NB can use alternative
     ```
 3. Mainnet / Production
     ```bash
     NetworkMagic: 764824073
-
-    # NB can use alternative
     ```
 
 ## Keys generation
 
-This repo has a script that is designed to help you setup your stake pool. The following steps are taken to start a stakepool
-1. Generate wallet keys
-2. Generate Block Producer Keys
-3. Generate operational certificate
-4. Restart relay node with keys generated to be a block producer node. Just uncomment the keys from .env
-5. To-up your address.
-6. Build & sign stake reg certificate & transaction
-7. Submit stake registration certificate transaction
-8. Create poolMetaData.json and upload to a server reachable via GET http or https
-9. Build & sign pool reg certificate & transaction
-10. Submit pool registration certificate transaction
+This repo has a script that is designed to help you setup your stake pool. Check `./ethd stakepool` sub commands to know more.
 
 ## ------
 

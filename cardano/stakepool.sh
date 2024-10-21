@@ -110,9 +110,14 @@ gen-cold-keys() {
       --cold-signing-key-file cold-keys/cold.skey \
       --operational-certificate-issue-counter cold-keys/cold.counter
 
+  # Generate stakepoolid.txt
+  cardano-cli $ERA stake-pool id \
+    --cold-verification-key-file cold-keys/cold.vkey \
+    --output-format hex > block-producer/stakepoolid.txt
+
   # Generating VRF Keys
   cardano-cli $ERA node key-gen-VRF \
-      --verification-key-file vrf.vkey \
+      --verification-key-file block-producer/vrf.vkey \
       --signing-key-file block-producer/vrf.skey
   chmod 400 block-producer/vrf.skey
 
@@ -171,8 +176,8 @@ gen-op-cert() {
 }
 
 gen-tran-stake-cert() {
-  if [ -e "tx.raw" ]; then
-    echo -e "${Red}Error!! Raw transaction to submit stake certificate already generated and saved to keys/tx.raw${Color_Off}"
+  if [ -e "block-producer/tx.raw" ]; then
+    echo -e "${Red}Error!! Raw transaction to submit stake certificate already generated and saved to keys/block-producer/tx.raw${Color_Off}"
     exit 0
   fi
 
@@ -204,11 +209,11 @@ gen-tran-stake-cert() {
       --certificate-file block-producer/stake.cert \
       --invalid-hereafter $(( ${currentSlot} + 1000)) \
       --witness-override 2 \
-      --out-file tx.draft)
+      --out-file block-producer/tx.draft)
   echo $fee
 
   # Parse transaction and get fee as number
-  feeNum=$(cardano-cli debug transaction view --tx-file tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
+  feeNum=$(cardano-cli debug transaction view --tx-file block-producer/tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   # Calculate change
   txOut=$(($currentBalance - $stakeAddressDeposit - $feeNum))
@@ -221,37 +226,37 @@ gen-tran-stake-cert() {
       --invalid-hereafter $((${currentSlot} + 1000)) \
       --fee ${feeNum} \
       --certificate-file block-producer/stake.cert \
-      --out-file tx.raw
+      --out-file block-producer/tx.raw
   
-  echo -e "${Green}Raw transaction to submit stake certificate generated, saved at keys/tx.raw${Color_Off}"
+  echo -e "${Green}Raw transaction to submit stake certificate generated, saved at keys/block-producer/tx.raw${Color_Off}"
 }
 
 sign-tran-stake-cert(){
-  if [ -e "tx.signed" ]; then
-    echo -e "${Red}Error!! Signed transaction to submit stake certificate already present and saved to keys/tx.signed${Color_Off}"
+  if [ -e "block-producer/tx.signed" ]; then
+    echo -e "${Red}Error!! Signed transaction to submit stake certificate already present and saved to keys/block-producer/tx.signed${Color_Off}"
     exit 0
   fi
 
   # Sign and Submit the transaction
   cardano-cli $ERA transaction sign \
-      --tx-body-file tx.raw \
+      --tx-body-file block-producer/tx.raw \
       --signing-key-file payment/payment.skey \
       --signing-key-file stake/stake.skey \
       $(get_network) \
-      --out-file tx.signed
+      --out-file block-producer/tx.signed
   
-  echo -e "${Green}Transaction to submit stake certificate signed, saved at keys/tx.signed${Color_Off}"
+  echo -e "${Green}Transaction to submit stake certificate signed, saved at keys/block-producer/tx.signed${Color_Off}"
 }
 
 submit-stake-tran() {
   cardano-cli $ERA transaction submit \
-    --tx-file tx.signed \
+    --tx-file block-producer/tx.signed \
     $(get_network)
 }
 
 pool-data() {
-  if [ -e "poolMetaData.json" ]; then
-    echo -e "${Red}Error!! keys/poolMetaData.json already exists${Color_Off}"
+  if [ -e "block-producer/poolMetaData.json" ]; then
+    echo -e "${Red}Error!! keys/block-producer/poolMetaData.json already exists${Color_Off}"
     exit 0
   fi
 
@@ -261,42 +266,48 @@ pool-data() {
   read -r -p "Enter Pool Homepage http:// or https://: " pool_url
 
   # Create JSON file with your metadata
-  cat > poolMetaData.json <<< "{\"name\": \"$pool_name\", \"description\": \"$pool_desc\", \"ticker\": \"$pool_ticker\", \"homepage\": \"$pool_url\"}"
+  cat > block-producer/poolMetaData.json <<< "{\"name\": \"$pool_name\", \"description\": \"$pool_desc\", \"ticker\": \"$pool_ticker\", \"homepage\": \"$pool_url\"}"
 
   # Calculate the hash of your metadata file
   cardano-cli $ERA stake-pool metadata-hash \
-      --pool-metadata-file poolMetaData.json > poolMetaDataHash.txt
+      --pool-metadata-file block-producer/poolMetaData.json > block-producer/poolMetaDataHash.txt
 
-  echo -e "${Green}Done, You need to upload poolMetaData.json to a publicly reachable URL${Color_Off}"
+  echo -e "${Green}Done, You need to upload block-producer/poolMetaData.json to a publicly reachable URL${Color_Off}"
+}
+
+verify-pool-data(){
+  read -r -p "Enter URL for poolMetaData.json (Max 64 characters, no redirect): " metadata_url
+
+  # Get hash from online file
+  hash0=$(cat block-producer/poolMetaDataHash.txt)
+  hash1=$(cardano-cli $ERA stake-pool metadata-hash --pool-metadata-file <(curl -s -L $metadata_url))
+
+  if [ "$hash0" != "$hash1" ]; then
+    echo -e "${Red}Error!! The hash for block-producer/poolMetaData.json from remote does not match local. Re-upload or check it again.${Color_Off}"
+    exit 0
+  fi
+
+  echo -e "${Green}Hash of remote poolMetaData.json matches local${Color_Off}"
 }
 
 gen-pool-cert() {
-  if [ -e "pool.cert" ]; then
-    echo -e "${Red}Error!! pool.cert already exists${Color_Off}"
+  if [ -e "block-producer/pool.cert" ]; then
+    echo -e "${Red}Error!! block-producer/pool.cert already exists${Color_Off}"
     exit 0
   fi
   
-  if [ ! -e "poolMetaData.json" ]; then
-    echo -e "${Red}Error!! keys/poolMetaData.json does not exists${Color_Off}"
+  if [ ! -e "block-producer/poolMetaData.json" ]; then
+    echo -e "${Red}Error!! keys/block-producer/poolMetaData.json does not exists${Color_Off}"
     exit 0
   fi
 
   read -r -p "Enter URL for poolMetaData.json (Max 64 characters, no redirect): " metadata_url
-
-  # Get hash from online file
-  hash0=$(cat poolMetaDataHash.txt)
-  hash1=$(cardano-cli $ERA stake-pool metadata-hash --pool-metadata-file <(curl -s -L $metadata_url))
-
-  if [ "$hash0" != "$hash1" ]; then
-    echo "The hash for poolMetaData.json from remote does not match local. Re-upload or check it again."
-    exit 0
-  fi
+  read -r -p "Enter relay node URLs: " relay_url
 
   # Generate the stake pool registration certificate
-  read -r -p "Enter relay node URLs: " relay_url
   cardano-cli $ERA stake-pool registration-certificate \
       --cold-verification-key-file cold-keys/cold.vkey \
-      --vrf-verification-key-file vrf.vkey \
+      --vrf-verification-key-file block-producer/vrf.vkey \
       --pool-pledge 100000000 \
       --pool-cost 340000000 \
       --pool-margin 0.01 \
@@ -306,15 +317,15 @@ gen-pool-cert() {
       --single-host-pool-relay $relay_url  \
       --pool-relay-port 6000 \
       --metadata-url $metadata_url \
-      --metadata-hash $(cat poolMetaDataHash.txt) \
-      --out-file pool.cert
+      --metadata-hash $(cat block-producer/poolMetaDataHash.txt) \
+      --out-file block-producer/pool.cert
   
-  echo -e "${Green}pool.cert generated successfully${Color_Off}"
+  echo -e "${Green}block-producer/pool.cert generated successfully${Color_Off}"
 }
 
 gen-deleg-cert() {
-  if [ -e "deleg.cert" ]; then
-    echo -e "${Red}Error!! deleg.cert already exists${Color_Off}"
+  if [ -e "block-producer/deleg.cert" ]; then
+    echo -e "${Red}Error!! block-producer/deleg.cert already exists${Color_Off}"
     exit 0
   fi
 
@@ -322,14 +333,14 @@ gen-deleg-cert() {
   cardano-cli $ERA stake-address stake-delegation-certificate \
       --stake-verification-key-file stake/stake.vkey \
       --cold-verification-key-file cold-keys/cold.vkey \
-      --out-file deleg.cert
+      --out-file block-producer/deleg.cert
 
-  echo -e "${Green}deleg.cert generated successfully${Color_Off}"
+  echo -e "${Green}block-producer/deleg.cert generated successfully${Color_Off}"
 }
 
 gen-raw-pool-tran() {
-  if [ -e "txp.raw" ]; then
-    echo -e "${Red}Error!! keys/txp.raw already generated${Color_Off}"
+  if [ -e "block-producer/txp.raw" ]; then
+    echo -e "${Red}Error!! keys/block-producer/txp.raw already generated${Color_Off}"
     exit 0
   fi
   
@@ -363,15 +374,15 @@ gen-raw-pool-tran() {
       --tx-out ${addr}+${feeNum} \
       --change-address ${addr} \
       $(get_network) \
-      --certificate-file pool.cert \
-      --certificate-file deleg.cert \
+      --certificate-file block-producer/pool.cert \
+      --certificate-file block-producer/deleg.cert \
       --invalid-hereafter $(( ${currentSlot} + 1000)) \
       --witness-override 2 \
-      --out-file txp.draft)
+      --out-file block-producer/txp.draft)
   echo $fee
 
   # Parse transaction and get fee as number
-  feeNum=$(cardano-cli debug transaction view --tx-file txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
+  feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   txOut=$(($currentBalance - $stakePoolDeposit - $feeNum))
   echo Change: ${txOut}
@@ -382,49 +393,45 @@ gen-raw-pool-tran() {
       --tx-out ${addr}+${txOut} \
       --invalid-hereafter $((${currentSlot} + 1000)) \
       --fee $feeNum \
-      --certificate-file pool.cert \
-      --certificate-file deleg.cert \
-      --out-file txp.raw
+      --certificate-file block-producer/pool.cert \
+      --certificate-file block-producer/deleg.cert \
+      --out-file block-producer/txp.raw
 
-  echo -e "${Green}txp.raw generated successfully${Color_Off}"
+  echo -e "${Green}block-producer/txp.raw generated successfully${Color_Off}"
 }
 
 sign-raw-pool-tran() {
-  if [ -e "txp.signed" ]; then
-    echo -e "${Red}Error!! keys/txp.signed already generated${Color_Off}"
+  if [ -e "block-producer/txp.signed" ]; then
+    echo -e "${Red}Error!! keys/block-producer/txp.signed already generated${Color_Off}"
     exit 0
   fi
 
   # Sign
   cardano-cli $ERA transaction sign \
-      --tx-body-file txp.raw \
+      --tx-body-file block-producer/txp.raw \
       --signing-key-file payment/payment.skey \
       --signing-key-file cold-keys/cold.skey \
       --signing-key-file stake/stake.skey \
       $(get_network) \
-      --out-file txp.signed
+      --out-file block-producer/txp.signed
   
-  echo -e "${Green}txp.signed generated successfully${Color_Off}"
+  echo -e "${Green}block-producer/txp.signed generated successfully${Color_Off}"
 }
 
 submit-pool-tran() {
   cardano-cli $ERA transaction submit \
-    --tx-file txp.signed \
+    --tx-file block-producer/txp.signed \
     $(get_network)
 }
 
 details(){
-  cardano-cli $ERA stake-pool id \
-    --cold-verification-key-file cold-keys/cold.vkey \
-    --output-format hex > stakepoolid.txt
-
-  id=$(cat stakepoolid.txt)
+  id=$(cat block-producer/stakepoolid.txt)
   echo "Stake Pool ID: $id"
   echo
   
   echo "Stake pool details"
   cardano-cli $ERA query stake-snapshot \
-    --stake-pool-id $(cat stakepoolid.txt) \
+    --stake-pool-id ${id} \
     $(get_network)
 }
 
@@ -463,6 +470,9 @@ help() {
   echo -e "  ${Blue}pool-data${Color_Off}"
   echo "    Generate poolMetaData.json. You need to upload it to a server after generation"
 
+  echo -e "  ${Blue}verify-pool-data${Color_Off}"
+  echo "    Verify remote poolMetaData.json hash with local"
+
   echo -e "  ${Blue}gen-pool-cert${Color_Off}"
   echo "    Create pool registration certificate"
 
@@ -490,7 +500,7 @@ fi
 
 __command="$1"
 case "$__command" in
-  help|bash|balance|gen-payment-keys|gen-stake-keys|gen-cold-keys|gen-op-cert|gen-tran-stake-cert|sign-tran-stake-cert|submit-stake-tran|pool-data|gen-pool-cert|gen-deleg-cert|gen-raw-pool-tran|sign-raw-pool-tran|submit-pool-tran|details)
+  help|bash|balance|gen-payment-keys|gen-stake-keys|gen-cold-keys|gen-op-cert|gen-tran-stake-cert|sign-tran-stake-cert|submit-stake-tran|pool-data|verify-pool-data|gen-pool-cert|gen-deleg-cert|gen-raw-pool-tran|sign-raw-pool-tran|submit-pool-tran|details)
     $__command "$@";;
   *)
     echo "Unrecognized command $__command"
