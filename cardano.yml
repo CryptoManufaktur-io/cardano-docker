@@ -25,6 +25,7 @@ services:
       - DB_DIR=/runtime/db
       - CNODE_HOST=${CNODE_HOST}
       - CNODE_PORT=${CNODE_PORT}
+      - NODE_EXTRA_ARGS=${NODE_EXTRA_ARGS:-}
 
       - NODE_TYPE=${NODE_TYPE}
       - TOPOLOGY_ACCESS_POINTS=${TOPOLOGY_ACCESS_POINTS:-}

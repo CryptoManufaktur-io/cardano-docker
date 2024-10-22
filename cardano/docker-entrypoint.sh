@@ -83,7 +83,7 @@ else
 fi
 # ---------------------------- END REGION SNAPSHOT -----------------------
 
-cardano-node run \
+cardano-node run $NODE_EXTRA_ARGS \
     --config $CONFIG \
     --topology $TOPOLOGY \
     --socket-path $SOCKET \
