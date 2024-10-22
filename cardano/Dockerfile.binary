@@ -12,7 +12,7 @@ COPY ssl-certs /ssl-certs
 # Install common tools and setup ssl if present
 RUN  apt update \
     && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get install -y software-properties-common curl wget iproute2 jq bc lz4 \
+    && apt-get install -y software-properties-common curl wget iproute2 jq bc lz4 nano vim \
     # setup ssl certs
     && cp /ssl-certs/*.crt /usr/local/share/ca-certificates/ | true \
     && update-ca-certificates \
@@ -31,7 +31,7 @@ RUN \
     # Change user shell to bash
     && usermod -s /bin/bash $USERNAME \
     # Create runtime folder and change owner
-    && mkdir -p /runtime/files /runtime/db /runtime/sockets /runtime/keys \
+    && mkdir -p /runtime/files /runtime/db /runtime/sockets /runtime/keys /runtime/logs \
     && chown -R $USERNAME:$USERNAME /runtime
 
 # Use the user created
