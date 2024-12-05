@@ -56,6 +56,7 @@ balance() {
     exit 0
   fi
 
+  addr="$(cat block-producer/payment.addr)"
   IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
   echo "Balance for '$addr'"
   echo "Number of UTXOs: $numUTXOs"
