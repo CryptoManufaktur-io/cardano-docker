@@ -21,6 +21,31 @@ get_network(){
   echo $command  
 }
 
+get_current_balance() {
+  # Check balance
+  addr="$(cat block-producer/payment.addr)"
+  bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
+
+  # Extract all lovelace values and calculate total balance
+  utxoBalances=$(echo $bal | jq -r .[].value.lovelace)
+  totalBalance=$(echo $utxoBalances | awk '{sum += $1} END {print sum}')
+  
+  # Count the number of UTXOs
+  numUTXOs=$(echo "$utxoBalances" | wc -l)
+
+  # Format totalBalance as a number without scientific notation
+  formattedTotalBalance=$(printf "%.0f" "$totalBalance")
+
+  # Loop through UTXOs and build the --tx-in string
+  txInString=""
+  while IFS="," read -r txid txix; do
+    txInString+="--tx-in ${txid}#${txix} "
+  done < <(echo "$bal" | jq -r 'keys[] as $k | "\($k | split("#")[0]),\($k | split("#")[1])"')
+
+  # Output as a single line with a delimiter
+  echo "$numUTXOs|$formattedTotalBalance|$txInString"
+}
+
 bash(){
     /bin/bash
 }
@@ -31,14 +56,10 @@ balance() {
     exit 0
   fi
 
-  addr=$(cat block-producer/payment.addr)
-  bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
-  currentBalance=$(echo $bal | jq -r .[].value.lovelace)
-  keys=$(echo $bal | jq -r 'keys[]')
-
-  echo "Balance for '$addr': ${currentBalance:-0} lovelace"
-  echo -e "${Green}utxos${Color_Off}"
-  echo $keys
+  IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
+  echo "Balance for '$addr'"
+  echo "Number of UTXOs: $numUTXOs"
+  echo "Total Balance: $totalBalance lovelace"
   echo 
   echo "You can topup the address if needed using the address hash shown"
 }
@@ -189,10 +210,10 @@ gen-tran-stake-cert() {
   fi
 
   # Check balance
-  addr=$(cat block-producer/payment.addr)
-  bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
-  currentBalance=$(echo $bal | jq -r .[].value.lovelace)
-  echo currentBalance: $currentBalance
+  IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
+  echo "Number of UTXOs: $numUTXOs"
+  echo "Total Balance: $totalBalance"
+  echo "UTXOs: $txInString"
   
   if [[ "$calculateDepositFee" == "yes" ]]; then
     # Get stakeAddressDeposit
@@ -204,17 +225,13 @@ gen-tran-stake-cert() {
     stakeAddressDeposit=0
   fi
 
-  # tx-in
-  txIn=$(echo $bal | jq -r 'keys[0]')
-  echo txIn: $txIn
-
   # invalid-hereafter
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
   echo Current Slot: $currentSlot
 
   # estimate fee
   fee=$(cardano-cli $ERA transaction build \
-      --tx-in ${txIn} \
+      ${txInString} \
       --tx-out ${addr}+1000000 \
       --change-address ${addr} \
       $(get_network) \
@@ -228,12 +245,12 @@ gen-tran-stake-cert() {
   feeNum=$(cardano-cli debug transaction view --tx-file block-producer/tx.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
   # Calculate change
-  txOut=$(($currentBalance - $stakeAddressDeposit - $feeNum))
-  echo "Change (currentBalance[$currentBalance] - stakeAddressDeposit[$stakeAddressDeposit] - feeNum[$feeNum]): ${txOut}"
+  txOut=$(($totalBalance - $stakeAddressDeposit - $feeNum))
+  echo "Change (totalBalance[$totalBalance] - stakeAddressDeposit[$stakeAddressDeposit] - feeNum[$feeNum]): ${txOut}"
 
   # Build the transaction
   cardano-cli $ERA transaction build-raw \
-      --tx-in ${txIn} \
+      ${txInString} \
       --tx-out ${addr}+${txOut} \
       --invalid-hereafter $((${currentSlot} + 1000)) \
       --fee ${feeNum} \
@@ -401,14 +418,10 @@ gen-raw-pool-tran() {
   fi
 
   # Check balance
-  addr=$(cat block-producer/payment.addr)
-  bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
-  currentBalance=$(echo $bal | jq -r .[].value.lovelace)
-  echo currentBalance: $currentBalance
-
-  # tx-in
-  txIn=$(echo $bal | jq -r 'keys[0]')
-  echo txIn: $txIn
+  IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
+  echo "Number of UTXOs: $numUTXOs"
+  echo "Total Balance: $totalBalance"
+  echo "UTXOs: $txInString"
 
   # invalid-hereafter
   currentSlot=$(cardano-cli query tip $(get_network) | jq -r '.slot')
@@ -417,7 +430,7 @@ gen-raw-pool-tran() {
   # Estimate fee
   feeNum=1000000 # 1 ADA
   fee=$(cardano-cli $ERA transaction build \
-      --tx-in ${txIn} \
+      ${txInString} \
       --tx-out ${addr}+${feeNum} \
       --change-address ${addr} \
       $(get_network) \
@@ -431,12 +444,12 @@ gen-raw-pool-tran() {
   # Parse transaction and get fee as number
   feeNum=$(cardano-cli debug transaction view --tx-file block-producer/txp.draft | jq '.fee | gsub("[^0-9]"; "") | tonumber')
 
-  txOut=$(($currentBalance - $stakePoolDeposit - $feeNum))
-  echo "Change (currentBalance[$currentBalance] - stakeAddressDeposit[$stakePoolDeposit] - feeNum[$feeNum]): ${txOut}"
+  txOut=$(($totalBalance - $stakePoolDeposit - $feeNum))
+  echo "Change (totalBalance[$totalBalance] - stakeAddressDeposit[$stakePoolDeposit] - feeNum[$feeNum]): ${txOut}"
 
   # Build transaction
   cardano-cli $ERA transaction build-raw \
-      --tx-in ${txIn} \
+      ${txInString} \
       --tx-out ${addr}+${txOut} \
       --invalid-hereafter $(( ${currentSlot} + 10000)) \
       --fee $feeNum \
