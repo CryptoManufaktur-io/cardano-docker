@@ -56,6 +56,7 @@ balance() {
     exit 0
   fi
 
+  addr="$(cat block-producer/payment.addr)"
   IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
   echo "Balance for '$addr'"
   echo "Number of UTXOs: $numUTXOs"
@@ -210,6 +211,7 @@ gen-tran-stake-cert() {
   fi
 
   # Check balance
+  addr="$(cat block-producer/payment.addr)"
   IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
   echo "Number of UTXOs: $numUTXOs"
   echo "Total Balance: $totalBalance"
@@ -418,6 +420,7 @@ gen-raw-pool-tran() {
   fi
 
   # Check balance
+  addr="$(cat block-producer/payment.addr)"
   IFS="|" read -r numUTXOs totalBalance txInString <<< "$(get_current_balance)"
   echo "Number of UTXOs: $numUTXOs"
   echo "Total Balance: $totalBalance"
