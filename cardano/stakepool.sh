@@ -427,7 +427,6 @@ gen-raw-pool-tran() {
   echo Current Slot: $currentSlot
 
   # Estimate fee
-  feeNum=1000000 # 1 ADA
   fee=$(cardano-cli $ERA transaction build \
       ${txInString} \
       --tx-out ${addr}+${feeNum} \
