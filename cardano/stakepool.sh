@@ -434,7 +434,7 @@ gen-raw-pool-tran() {
   feeNum=1000000 # 1 ADA
   fee=$(cardano-cli $ERA transaction build \
       ${txInString} \
-      --tx-out ${addr}+${feeNum} \
+      --tx-out ${addr}+${totalBalance} \
       --change-address ${addr} \
       $(get_network) \
       --certificate-file block-producer/pool.cert \
