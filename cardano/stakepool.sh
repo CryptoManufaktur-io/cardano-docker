@@ -27,20 +27,16 @@ get_current_balance() {
   bal=$(cardano-cli $ERA query utxo --address $addr --output-json $(get_network))
 
   # Extract all lovelace values and calculate total balance
-  utxoBalances=$(echo $bal | jq -r .[].value.lovelace)
-  totalBalance=$(echo $utxoBalances | awk '{sum += $1} END {print sum}')
-  
+  totalBalance=$(echo "$bal" | jq '[.[] | .value.lovelace] | add')
+
   # Count the number of UTXOs
-  numUTXOs=$(echo "$utxoBalances" | wc -l)
+  numUTXOs=$(echo "$bal" | jq 'length')
+
+  # Build the --tx-in string as a single line
+  txInString=$(echo "$bal" | jq -r 'keys[] | "--tx-in " + .' | tr '\n' ' ')
 
   # Format totalBalance as a number without scientific notation
   formattedTotalBalance=$(printf "%.0f" "$totalBalance")
-
-  # Loop through UTXOs and build the --tx-in string
-  txInString=""
-  while IFS="," read -r txid txix; do
-    txInString+="--tx-in ${txid}#${txix} "
-  done < <(echo "$bal" | jq -r 'keys[] as $k | "\($k | split("#")[0]),\($k | split("#")[1])"')
 
   # Output as a single line with a delimiter
   echo "$numUTXOs|$formattedTotalBalance|$txInString"
@@ -431,7 +427,6 @@ gen-raw-pool-tran() {
   echo Current Slot: $currentSlot
 
   # Estimate fee
-  feeNum=1000000 # 1 ADA
   fee=$(cardano-cli $ERA transaction build \
       ${txInString} \
       --tx-out ${addr}+${totalBalance} \
