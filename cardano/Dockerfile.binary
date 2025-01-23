@@ -1,5 +1,5 @@
 # Note: You can use any Debian/Ubuntu based image you want. 
-FROM ubuntu:22.04
+FROM debian:stable-slim
 ARG USERNAME=cardano
 ARG GID=1000
 ARG UID=1000
@@ -12,7 +12,7 @@ COPY ssl-certs /ssl-certs
 # Install common tools and setup ssl if present
 RUN  apt update \
     && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get install -y software-properties-common curl wget iproute2 jq bc lz4 nano vim \
+    && apt-get install -y software-properties-common procps curl wget iproute2 jq bc lz4 nano vim \
     # setup ssl certs
     && cp /ssl-certs/*.crt /usr/local/share/ca-certificates/ | true \
     && update-ca-certificates \
@@ -21,7 +21,8 @@ RUN  apt update \
     # Clean up
     && apt purge --remove software-properties-common -y \
     && apt autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/cache/apt/archives/*
 
 # Setup non root user
 RUN \
@@ -43,7 +44,11 @@ RUN \
     cd /home/$USERNAME \
     && mkdir -p cardano gLiveView \
     # Download binary files and extract
-    && curl -o cardano.tar.gz -L https://github.com/IntersectMBO/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-linux.tar.gz \
+    && if [ "$CARDANO_NODE_VERSION" = "latest" ]; then \
+        curl -s https://api.github.com/repos/IntersectMBO/cardano-node/releases/latest | grep "browser_download_url.*linux.tar.gz" | cut -d : -f 2,3 | tr -d '"' | xargs wget -O cardano.tar.gz; \
+    else \
+        curl -L -o cardano.tar.gz https://github.com/IntersectMBO/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-linux.tar.gz; \
+    fi \
     && tar xfvz cardano.tar.gz -C cardano \
     && rm cardano.tar.gz \
     # Setup gLiveView
