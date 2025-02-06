@@ -72,7 +72,7 @@ if [[ -d "${DB_DIR}" && -z "$(ls -A ${DB_DIR})" ]] && [[ -n "${SNAPSHOT}" ]]; th
     # Check if the file was downloaded successfully
     if [[ "${file_checksum}" == "${expected_checksum}" ]]; then
         # Check if the extraction was successful
-        if pzstd -c -d -v "${FILENAME}" | tar xvf - -C "${DB_DIR}"; then
+        if pzstd -dvc "${FILENAME}" | tar xv --strip-components=1 -C "${DB_DIR}"; then
             echo "Extraction for snapshot successful!"
             rm -rf /runtime/temp
         else
