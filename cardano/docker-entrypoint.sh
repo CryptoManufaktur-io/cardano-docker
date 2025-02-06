@@ -32,14 +32,19 @@ echo "$json_data" > $CONFIGS_DIR/config.json
 
 # Update topology.json
 topology_data=$(cat $CONFIGS_DIR/topology.json)
-topology_data=$(echo "$topology_data" | jq ".localRoots[0].trustable = true")
 IFS=',' read -r -a TOPOLOGY_CHANGES <<< "$TOPOLOGY_ACCESS_POINTS"
 loop_index=0
 for url in "${TOPOLOGY_CHANGES[@]}"
 do
     topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].address = \"$url\"")
     topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].port = 6000")
-    topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Node $url\"")
+
+    if [[ "${NODE_TYPE}" == "block-producer" ]]; then
+        topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Relay $loop_index\"")
+    else
+        topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Block producer Node\"")
+    fi
+
     loop_index=$(expr $loop_index + 1)
 done
 if [[ "${NODE_TYPE}" == "block-producer" ]]; then
@@ -48,6 +53,8 @@ if [[ "${NODE_TYPE}" == "block-producer" ]]; then
 else
     topology_data=$(echo "$topology_data" | jq ".localRoots[0].comment = \"Do NOT advertise the block-producing node\"")
 fi
+topology_data=$(echo "$topology_data" | jq ".localRoots[0].trustable = true")
+topology_data=$(echo "$topology_data" | jq ".localRoots[0].valency = $loop_index")
 echo "$topology_data" > $CONFIGS_DIR/topology.json
 # ---------------------------- END REGION CONFIGS ------------------------
 
