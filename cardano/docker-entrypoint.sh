@@ -62,7 +62,7 @@ echo "$topology_data" > $CONFIGS_DIR/topology.json
 # Check if DB_DIR exists and is empty, and if SNAPSHOT is set and not empty
 if [[ -d "${DB_DIR}" && -z "$(ls -A ${DB_DIR})" ]] && [[ -n "${SNAPSHOT}" ]]; then
     mkdir -p /runtime/temp
-    FILENAME="/runtime/temp/snapshot.tar.lz4"
+    FILENAME="/runtime/temp/snapshot.tar.zst"
     
     echo "Starting or resuming downloading snapshot from ${SNAPSHOT}..."
     wget -c -O "${FILENAME}" "${SNAPSHOT}" --progress=dot:giga
@@ -72,17 +72,15 @@ if [[ -d "${DB_DIR}" && -z "$(ls -A ${DB_DIR})" ]] && [[ -n "${SNAPSHOT}" ]]; th
     # Check if the file was downloaded successfully
     if [[ "${file_checksum}" == "${expected_checksum}" ]]; then
         # Check if the extraction was successful
-        if lz4 -dvc --no-sparse "${FILENAME}" | tar xv --strip-components=1 -C "${DB_DIR}"; then
+        if pzstd -c -d "${FILENAME}" | tar xvf - -C "${DB_DIR}"; then
             echo "Extraction for snapshot successful!"
-            rm -rf /runtime/temp
+            # rm -rf /runtime/temp
         else
             echo "Error: Extraction for snapshot failed."
-            rm -rf /runtime/temp
             exit 1
         fi
     else
         echo "Error: Failed to download snapshot file."
-        rm -rf /runtime/temp
         exit 1
     fi
 else

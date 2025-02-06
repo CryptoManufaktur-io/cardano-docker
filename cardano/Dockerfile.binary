@@ -12,7 +12,7 @@ COPY ssl-certs /ssl-certs
 # Install common tools and setup ssl if present
 RUN  apt update \
     && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get install -y software-properties-common procps curl wget iproute2 jq bc lz4 nano vim \
+    && apt-get install -y software-properties-common procps curl wget iproute2 jq bc zstd nano vim \
     # setup ssl certs
     && cp /ssl-certs/*.crt /usr/local/share/ca-certificates/ | true \
     && update-ca-certificates \
