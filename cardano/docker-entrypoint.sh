@@ -42,7 +42,7 @@ do
     if [[ "${NODE_TYPE}" == "block-producer" ]]; then
         topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Relay $loop_index\"")
     else
-        topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Block producer Node\"")
+        topology_data=$(echo "$topology_data" | jq ".localRoots[0].accessPoints[$loop_index].name = \"Block producer Node $loop_index\"")
     fi
 
     loop_index=$(expr $loop_index + 1)
