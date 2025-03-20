@@ -1,4 +1,3 @@
-# To be used in conjunction with node.yml or cdk-erigon.yml
 services:
   cardano-node:
     ports:

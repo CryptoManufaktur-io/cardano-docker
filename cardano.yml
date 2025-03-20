@@ -38,8 +38,6 @@ services:
     volumes:
       - node-runtime:/runtime
       - ./keys:/runtime/keys
-      # - ./cardano/stakepool.sh:/usr/local/bin/stakepool.sh
-      # - ./cardano/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh
     labels:
       - metrics.scrape=true
       - metrics.port=12798

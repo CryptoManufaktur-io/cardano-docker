@@ -1,8 +1,8 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
 
 # ---------------------------- REGION CONFIGS ---------------------------
-CONFIGS_DIR=/runtime/files
+CONFIGS_DIR=files
 
 # Config file for block producer is different
 EXTRA_BLOCK_PRODUCER_ARGS=""
@@ -61,11 +61,13 @@ echo "$topology_data" > $CONFIGS_DIR/topology.json
 # ---------------------------- REGION SNAPSHOT ---------------------------
 # Check if DB_DIR exists and is empty, and if SNAPSHOT is set and not empty
 if [[ -d "${DB_DIR}" && -z "$(ls -A ${DB_DIR})" ]] && [[ -n "${SNAPSHOT}" ]]; then
-    mkdir -p /runtime/temp
-    FILENAME="/runtime/temp/snapshot.tar.zst"
+    mkdir -p temp
+    FILENAME="temp/snapshot.tar.zst"
     
     echo "Starting or resuming downloading snapshot from ${SNAPSHOT}..."
-    wget -c -O "${FILENAME}" "${SNAPSHOT}" --progress=dot:giga
+    # wget -c -O "${FILENAME}" "${SNAPSHOT}" --progress=dot:giga
+    aria2c -o "${FILENAME}" -c -x6 -s6 "${SNAPSHOT}"
+
     file_checksum=$(sha256sum "$FILENAME" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
     expected_checksum=$(echo "${SNAPSHOT_CHECKSUM}" | tr '[:upper:]' '[:lower:]')
 
@@ -74,7 +76,7 @@ if [[ -d "${DB_DIR}" && -z "$(ls -A ${DB_DIR})" ]] && [[ -n "${SNAPSHOT}" ]]; th
         # Check if the extraction was successful
         if pzstd -dvc "${FILENAME}" | tar xv --strip-components=1 -C "${DB_DIR}"; then
             echo "Extraction for snapshot successful!"
-            rm -rf /runtime/temp
+            rm -rf temp
         else
             echo "Error: Extraction for snapshot failed."
             exit 1
