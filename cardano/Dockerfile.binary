@@ -1,8 +1,8 @@
 # Note: You can use any Debian/Ubuntu based image you want. 
 FROM debian:bookworm-slim
 ARG USERNAME=cardano
-ARG GID=10001
-ARG UID=10001
+ARG GID=1000
+ARG UID=1000
 ARG CARDANO_NODE_VERSION
 
 # Install common tools
